@@ -1,0 +1,163 @@
+const express = require("express");
+var cookieParser = require('cookie-parser');
+const path = require("path");
+const open = require("open");
+const compression = require("compression");
+const cors = require("cors");
+const logger = require("morgan");
+const { preloadAll } = require("@react-loadable/revised");
+import { createProxyMiddleware } from 'http-proxy-middleware';
+const webpack = require("webpack");
+const https = require("https");
+const fs = require("fs");
+const device = require('express-device');
+const loadConfig = require("./helpers/loadConfig");
+const { getPlatformFromRequest } = require("./utils/requestContext");
+const resourcesConfigLoader = require("./helpers/resourcesConfigLoader");
+const { replaceConfigSettings } = require("./helpers/htmlUtility");
+const airRouter = require("./airRouter");
+const { initTimer } = require("@common/frontend-configuration/lib/refresh");
+const helmet = require('helmet');
+
+const isEnableSsl = true;
+const app = express();
+app.use(helmet.hsts({
+    maxAge: 31536000,
+    includeSubDomains: false,
+    preload: true,
+    force: true,
+}));
+app.use(device.capture());
+if (global.MIDDLEWARE_URL) {
+    app.use('/airautosuggestapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/api', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/airpaymentapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/baggageapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/seatapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/clubmiles', createProxyMiddleware({
+        target: global.MIDDLEWARE_URL, changeOrigin: true,
+        onProxyReq: (request) => request.setHeader("origin", global.MIDDLEWARE_URL)
+    }));
+    app.use('/clubmiles-auth', createProxyMiddleware({
+        target: global.MIDDLEWARE_URL, changeOrigin: true,
+        onProxyReq: (request) => request.setHeader("origin", global.MIDDLEWARE_URL)
+    }));
+    app.use('/additionalserviceapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/appsetting', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/saverClubMembershipApi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+    app.use('/airsettingapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
+}
+if (global.AIR_API_URL) {
+    app.use('/airsearchapi', createProxyMiddleware({
+        target: global.AIR_API_URL,
+        changeOrigin: true,
+    }));
+}
+app.use(cookieParser());
+// set no-cache header for all requests.
+app.use(function (req, res, next) {
+    res.header("Cache-Control", "private, no-cache, no-store, must-revalidate");
+    res.header("Expires", "-1");
+    next();
+});
+
+process.on("unhandledRejection", (err) => {
+    throw err;
+});
+
+app.use(logger("dev"));
+app.use(compression());
+app.use(cors());
+
+let config;
+if (process.env.ENABLE_ANALYZER) {
+    config = require("../webpack/webpack.config.analyzer");
+} else {
+    config = require("../webpack/webpack.config.dev");
+}
+const compiler = webpack(config);
+const devMiddlewareInstance = require("webpack-dev-middleware")(compiler, {
+    publicPath: config.output.publicPath,
+});
+app.use(devMiddlewareInstance);
+app.use(require("webpack-hot-middleware")(compiler));
+
+/* eslint-disable no-console */
+app.use(global.URL_PREFIX, airRouter);
+
+app.use("/*", renderHtmlRoute);
+
+initApp()
+    .then(() => {
+        console.log("Loading Configuration");
+        const configsToLoad = global.configsToLoad || {
+            PAGE_RESOURCES: true,
+            SETTINGS: true,
+            LAUNCHPAD_CONFIG: false,
+        };
+        console.log("default config load", configsToLoad);
+        return loadConfig(configsToLoad, devMiddlewareInstance, compiler);
+    })
+    .then(() => initTimer("web"))
+    .then(preloadAll)
+    .then(() => {
+        if (isEnableSsl) {
+            const privateKey = fs.readFileSync("./key.pem");
+            const certificate = fs.readFileSync("./cert.pem");
+            const credentials = {
+                key: privateKey,
+                cert: certificate,
+                passphrase: "aaaa1234",
+            };
+            const httpsServer = https.createServer(credentials, app);
+            httpsServer.listen(8443, function (err) {
+                if (err) {
+                    process.exit(1);
+                } else {
+                    open(`https://localhost:8443/`);
+                }
+            });
+        }
+        app.listen(3020, function (err) {
+            if (err) {
+                process.exit(1);
+            } else {
+                open(`http://localhost:3020/`);
+            }
+        });
+    })
+    .catch(() => {
+        process.exit(1);
+    });
+
+function initApp() {
+    return new Promise((resolve, reject) => {
+        const filename = path.join(compiler.outputPath, "index.html");
+        devMiddlewareInstance.waitUntilValid(() => {
+            compiler.outputFileSystem.readFile(filename, function (err, content) {
+                if (err) {
+                    return reject(err);
+                }
+                resolve(true);
+            });
+        });
+    });
+}
+
+function renderHtmlRoute(req, res, next) {
+    const culture = resourcesConfigLoader.getCultureFromRequest(req);
+    const filename = path.join(compiler.outputPath, "index.html");
+    const platform = getPlatformFromRequest(req);
+    devMiddlewareInstance.waitUntilValid(() => {
+        compiler.outputFileSystem.readFile(filename, function (err, result) {
+            if (err) {
+                return next(err);
+            }
+            replaceConfigSettings(result.toString(), culture, platform).then((newContent) => {
+                res.set("content-type", "text/html");
+                res.send(newContent);
+                res.end();
+            });
+        });
+    });
+}
