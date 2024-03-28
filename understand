@@ -162,71 +162,40 @@ function renderHtmlRoute(req, res, next) {
     });
 }
 
-Microsoft.AspNetCore.Server.Kestrel.Core.BadHttpRequestException:    at Microsoft.AspNetCore.Server.Kestrel.Core.KestrelBadHttpRequestException.Throw (Microsoft.AspNetCore.Server.Kestrel.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.Http1MessageBody.ThrowUnexpectedEndOfRequestContent (Microsoft.AspNetCore.Server.Kestrel.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.Http1ContentLengthMessageBody+<ReadAsyncInternal>d__9.MoveNext (Microsoft.AspNetCore.Server.Kestrel.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Threading.Tasks.Sources.ManualResetValueTaskSourceCore`1.ThrowForFailedGetResult (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Threading.Tasks.Sources.ManualResetValueTaskSourceCore`1.GetResult (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1+StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpRequestStream+<ReadAsyncInternal>d__30.MoveNext (Microsoft.AspNetCore.Server.Kestrel.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Threading.Tasks.Sources.ManualResetValueTaskSourceCore`1.ThrowForFailedGetResult (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.PoolingAsyncValueTaskMethodBuilder`1+StateMachineBox`1.System.Threading.Tasks.Sources.IValueTaskSource<TResult>.GetResult (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Text.Json.Serialization.ReadBufferState+<ReadFromStreamAsync>d__11.MoveNext (System.Text.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Text.Json.Serialization.Metadata.JsonTypeInfo`1+<DeserializeAsync>d__1.MoveNext (System.Text.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Threading.Tasks.ValueTask`1.get_Result (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Text.Json.Serialization.Metadata.JsonTypeInfo`1+<DeserializeAsObjectAsync>d__5.MoveNext (System.Text.Json, Version=8.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Formatters.SystemTextJsonInputFormatter+<ReadRequestBodyAsync>d__8.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Formatters.SystemTextJsonInputFormatter+<ReadRequestBodyAsync>d__8.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.ModelBinding.Binders.BodyModelBinder+<BindModelAsync>d__11.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.ModelBinding.ParameterBinder+<BindModelAsync>d__8.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Controllers.ControllerBinderDelegateProvider+<>c__DisplayClass0_0+<<CreateBinderDelegate>g__Bind|0>d.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Infrastructure.ControllerActionInvoker+<<InvokeInnerFilterAsync>g__Awaited|13_0>d.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker+<<InvokeFilterPipelineAsync>g__Awaited|20_0>d.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker+<<InvokeAsync>g__Logged|17_1>d.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Mvc.Infrastructure.ResourceInvoker+<<InvokeAsync>g__Logged|17_1>d.MoveNext (Microsoft.AspNetCore.Mvc.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.ResponseCompression.ResponseCompressionMiddleware+<InvokeCore>d__4.MoveNext (Microsoft.AspNetCore.ResponseCompression, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Program+<>c__DisplayClass0_0+<<<Main>$>b__9>d.MoveNext (AffiliateTrackingAPI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null: D:\a\1\s\AffiliateTrackingAPI\Program.cs:116)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Program+<>c+<<<Main>$>b__0_8>d.MoveNext (AffiliateTrackingAPI, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null: D:\a\1\s\AffiliateTrackingAPI\Program.cs:98)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Authorization.AuthorizationMiddleware+<Invoke>d__11.MoveNext (Microsoft.AspNetCore.Authorization.Policy, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Authentication.AuthenticationMiddleware+<Invoke>d__6.MoveNext (Microsoft.AspNetCore.Authentication, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60)    at System.Runtime.ExceptionServices.ExceptionDispatchInfo.Throw (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.ThrowForNonSuccess (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at System.Runtime.CompilerServices.TaskAwaiter.HandleNonSuccessAndDebuggerNotification (System.Private.CoreLib, Version=8.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e)    at Microsoft.AspNetCore.Server.Kestrel.Core.Internal.Http.HttpProtocol+<ProcessRequests>d__238`1.MoveNext (Microsoft.AspNetCore.Server.Kestrel.Core, Version=8.0.0.0, Culture=neutral, PublicKeyToken=adb9793829ddae60) 
-
-
-using System.IO;
-using System.Security.Cryptography;
-using System.Text;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using PaymentFormAPI.Services.Cockpit;
 using System;
-using PaymentFormAPI.Logger;
-namespace PaymentFormAPI.Utililies
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace PaymentFormAPI.HealthCheck
 {
-    public static class EncryptionUtility
+    public class CockpitApiHealthCheck : IHealthCheck
     {
-        public static string DecryptStringAES(string key, string cipherText)
+
+        protected ICockpitService _cockpitService;
+        public CockpitApiHealthCheck(ICockpitService cockpitService)
         {
-            string searchkey = key.Replace("-", "");
-            var keybytes = Encoding.UTF8.GetBytes(searchkey);
-            string IV = searchkey.Substring(0, 16);
-            var iv = Encoding.UTF8.GetBytes(IV);
-            var encrypted = Convert.FromBase64String(cipherText);
-            var decriptedStringFromBytes = DecryptStringFromBytes(encrypted, keybytes, iv);
-            return decriptedStringFromBytes.Replace("\"", "");
+            _cockpitService = cockpitService;
         }
-        private static string DecryptStringFromBytes(byte[] cipherText, byte[] key, byte[] iv)
+        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = new CancellationToken())
         {
-            if (cipherText == null || cipherText.Length <= 0)
-            {
-                throw new ArgumentNullException(nameof(cipherText));
-            }
-            if (key == null || key.Length <= 0)
-            {
-                throw new ArgumentNullException(nameof(key));
-            }
-            if (iv == null || iv.Length <= 0)
-            {
-                throw new ArgumentNullException(nameof(iv));
-            }
-            string plaintext = null;
-            using (Aes aesAlg = Aes.Create())
-            {
-                aesAlg.Mode = CipherMode.CFB;
-                aesAlg.Padding = PaddingMode.PKCS7;
-                aesAlg.FeedbackSize = 128;
-                aesAlg.Key = key;
-                aesAlg.IV = iv;
-                var decryptor = aesAlg.CreateDecryptor(aesAlg.Key, aesAlg.IV);
-                try
+            var isHealthy = false;
+            if(_cockpitService != null )
+            {                
+                isHealthy = _cockpitService.PortalSettings.Count == 42;
+                if ((DateTime.Now - _cockpitService.InitializeOn).TotalMinutes > 15)
                 {
-                    using (var msDecrypt = new MemoryStream(cipherText))
-                    {
-                        using (var csDecrypt = new CryptoStream(msDecrypt, decryptor, CryptoStreamMode.Read))
-                        {
-                            using (var srDecrypt = new StreamReader(csDecrypt))
-                            {
-                                plaintext = srDecrypt.ReadToEnd();
-                            }
-                        }
-                    }
+                    _cockpitService.InitializeOn=DateTime.Now;
+                    _cockpitService.ReloadCockpitSettings();
                 }
-                catch (Exception ex)
-                {
-                    plaintext = "keyError";
-                    Log.Error("Exception in DecryptStringFromBytes:", ex);
-                }
+            }       
+            if (isHealthy)
+            {
+                return Task.FromResult(HealthCheckResult.Healthy("Healthy"));
             }
-            return plaintext;
+            return Task.FromResult(HealthCheckResult.Unhealthy("Unhealthy"));
         }
     }
 }
+
