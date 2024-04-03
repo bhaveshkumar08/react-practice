@@ -162,40 +162,69 @@ function renderHtmlRoute(req, res, next) {
     });
 }
 
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using PaymentFormAPI.Services.Cockpit;
-using System;
-using System.Threading;
-using System.Threading.Tasks;
+import React, { useState,useEffect } from 'react';
+import { logEvent, addAttribute } from 'logger';
+import { reviewSurvey } from 'utils/eventNames';
 
-namespace PaymentFormAPI.HealthCheck
-{
-    public class CockpitApiHealthCheck : IHealthCheck
-    {
+const SurveyScreen = () => {
+    const [showPersonalizedItineraryScreen, setShowPersonalizedItineraryScreen] = useState(true);
+    const [showServiceScreen, setShowServiceScreen] = useState(false);
+    const [showThankyouScreen, setShowThankyouScreen] = useState(false);
 
-        protected ICockpitService _cockpitService;
-        public CockpitApiHealthCheck(ICockpitService cockpitService)
-        {
-            _cockpitService = cockpitService;
-        }
-        public Task<HealthCheckResult> CheckHealthAsync(HealthCheckContext context, CancellationToken cancellationToken = new CancellationToken())
-        {
-            var isHealthy = false;
-            if(_cockpitService != null )
-            {                
-                isHealthy = _cockpitService.PortalSettings.Count == 42;
-                if ((DateTime.Now - _cockpitService.InitializeOn).TotalMinutes > 15)
-                {
-                    _cockpitService.InitializeOn=DateTime.Now;
-                    _cockpitService.ReloadCockpitSettings();
-                }
-            }       
-            if (isHealthy)
-            {
-                return Task.FromResult(HealthCheckResult.Healthy("Healthy"));
-            }
-            return Task.FromResult(HealthCheckResult.Unhealthy("Unhealthy"));
-        }
+    useEffect(() => {
+        logEvent({ ...reviewSurvey, Action: 'personalized_itinerary_screen_displayed' });
+    }, []);
+    const onYesClickedInPersonalizedItineraryScreen = () => {
+        setShowPersonalizedItineraryScreen(false);
+        setShowServiceScreen(true);
+        logEvent({ ...reviewSurvey, Action: 'interest_in_personalized_itinerary_clicked_yes' });
     }
-}
+    const onNoClickedInPersonalizedItineraryScreen = () => {
+        setShowPersonalizedItineraryScreen(false);
+        setShowThankyouScreen(true);
+        logEvent({ ...reviewSurvey, Action: 'interest_in_personalized_itinerary_clicked_no' });
+        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
+    }
+    const onYesClickedInServiceScreen = () => {
+        setShowServiceScreen(false);
+        setShowThankyouScreen(true)
+        logEvent({ ...reviewSurvey, Action: 'pay_for_service_clicked_yes' });
+        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
+    }
+    const onNoClickedInServiceScreen = () => {
+        setShowServiceScreen(false);
+        setShowThankyouScreen(true);
+        logEvent({ ...reviewSurvey, Action: 'pay_for_service_clicked_no' });
+        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
+    }
+    return (
+        <>
+            <section class="row m-0 mb-5 p-5 panel">
+                <div style={{display: 'flex'}}>
+                    {showPersonalizedItineraryScreen && 
+                        <>
+                            <p>Would you be interested in a service that provides a personalized itinerary based on you trip preferences?</p>
+                            <button type="button" className="btn btn-success btn-sm mr-2" style={{width}} onClick={onYesClickedInPersonalizedItineraryScreen}>Yes</button>
+                            <button type="button" className="btn btn-danger btn-sm mr-2" onClick={onNoClickedInPersonalizedItineraryScreen}>No</button>
+                        </>
+                    }
+                    {showServiceScreen && 
+                        <>
+                            <p>Would you consider paying for this service?</p>
+                            <button type="button" className="btn btn-success btn-sm mr-2" onClick={onYesClickedInServiceScreen}>Yes</button>
+                            <button type="button" className="btn btn-danger btn-sm mr-2" onClick={onNoClickedInServiceScreen}>No</button>
+                        </>
+                    }
+                    {showThankyouScreen && 
+                        <>
+                            <p>Thank you For your feedback!</p>
+                        </>
+                    }
+                </div>
+            </section>
+        </>
+    );
+};
+
+export default SurveyScreen;
 
