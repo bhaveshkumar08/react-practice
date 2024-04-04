@@ -165,6 +165,7 @@ function renderHtmlRoute(req, res, next) {
 import React, { useState,useEffect } from 'react';
 import { logEvent, addAttribute } from 'logger';
 import { reviewSurvey } from 'utils/eventNames';
+import widget from '../widget/index';
 
 const SurveyScreen = () => {
     const [showPersonalizedItineraryScreen, setShowPersonalizedItineraryScreen] = useState(true);
@@ -199,25 +200,27 @@ const SurveyScreen = () => {
     }
     return (
         <>
-            <section class="row m-0 mb-5 p-5 panel">
-                <div style={{display: 'flex'}}>
+            <section class="row m-0 mb-5 p-5 panel" style={{padding: '24px', maxWidth: '873px', height: 'fit-content'}}>
+                <div className="d-flex">
                     {showPersonalizedItineraryScreen && 
-                        <>
-                            <p>Would you be interested in a service that provides a personalized itinerary based on you trip preferences?</p>
-                            <button type="button" className="btn btn-success btn-sm mr-2" style={{width}} onClick={onYesClickedInPersonalizedItineraryScreen}>Yes</button>
-                            <button type="button" className="btn btn-danger btn-sm mr-2" onClick={onNoClickedInPersonalizedItineraryScreen}>No</button>
-                        </>
+                        <div className="d-flex">
+                            <p style={{fontFamily: 'Arial', fontSize: '18px', fontWeight: '400',  color: '#313541', width: '485px',height: '42px', gap: '0px', opacity: '0px', lineHeight: '20.7px', textAlign: 'left'}}>Would you be interested in a service that provides a personalized itinerary based on you trip preferences?</p>
+                            <div className='d-flex' style={{width: 'max-content', maxWidth: '316px', height: 'max-context', maxHeight: '48px', gap: '12px'}}>
+                                <button type="button" style={{fontWeight: '300', lineHeight: '21px', fontSize: '14px', color: '#008942', backgroundColor: '#E6F7EE', border: 'none', borderRadius: '4px', width: '152px', height: 'max-context', maxHeight: '48px', padding: '12px 8px', gap: '8px'}} onClick={onYesClickedInPersonalizedItineraryScreen}>Yes</button>
+                                <button type="button" style={{fontWeight: '300',  lineHeight: '21px', fontSize: '14px', color: '#B33100', backgroundColor: '#FCE8E8', border: 'none', borderRadius: '4px' , width: '152px', height: 'max-context', maxHeight: '48px', padding: '12px 8px', gap: '8px'}} onClick={onNoClickedInPersonalizedItineraryScreen}>No</button>
+                            </div>
+                        </div>
                     }
                     {showServiceScreen && 
                         <>
                             <p>Would you consider paying for this service?</p>
-                            <button type="button" className="btn btn-success btn-sm mr-2" onClick={onYesClickedInServiceScreen}>Yes</button>
+                            <button type="button" className="btn btn-success btn-sm mr-2" style={{width: '10px'}} onClick={onYesClickedInServiceScreen}>Yes</button>
                             <button type="button" className="btn btn-danger btn-sm mr-2" onClick={onNoClickedInServiceScreen}>No</button>
                         </>
                     }
                     {showThankyouScreen && 
                         <>
-                            <p>Thank you For your feedback!</p>
+                            <p>Thank you for your feedback!</p>
                         </>
                     }
                 </div>
