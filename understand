@@ -162,72 +162,25 @@ function renderHtmlRoute(req, res, next) {
     });
 }
 
-import React, { useState,useEffect } from 'react';
-import { logEvent, addAttribute } from 'logger';
-import { reviewSurvey } from 'utils/eventNames';
-import widget from '../widget/index';
-
-const SurveyScreen = () => {
-    const [showPersonalizedItineraryScreen, setShowPersonalizedItineraryScreen] = useState(true);
-    const [showServiceScreen, setShowServiceScreen] = useState(false);
-    const [showThankyouScreen, setShowThankyouScreen] = useState(false);
-
-    useEffect(() => {
-        logEvent({ ...reviewSurvey, Action: 'personalized_itinerary_screen_displayed' });
-    }, []);
-    const onYesClickedInPersonalizedItineraryScreen = () => {
-        setShowPersonalizedItineraryScreen(false);
-        setShowServiceScreen(true);
-        logEvent({ ...reviewSurvey, Action: 'interest_in_personalized_itinerary_clicked_yes' });
+export const getAffirmSDK = () => {
+    if (!document.getElementById('affirmSettings')) {
+        const isPassAffirmData = window.cockpitSetting.ApplicationSettings.isPassAffirmData        
+        const iDiv = document.createElement('script');
+        iDiv.id = 'affirmSettings';
+        const countryCode = window.appSettings.portalId === 93 ? "CAN" : "USA";
+        const affirmData = isPassAffirmData ? ",locale:'" + window.appSettings.pixelCulture.replace("-","_") + "',country_code:'" + countryCode + "'" : "";
+        let strSDK = " _affirm_config = { public_api_key: '" + window.cockpitSetting.ApplicationSettings.AffirmApiKey + "', script: '" + window.cockpitSetting.ApplicationSettings.AffirmApiUrl + "'," +
+            "session_id: 'b4b9905b-6269-4b43-ac0c-b5139ef9c7b9'"+affirmData+"}; ";
+        strSDK = strSDK + " (function (l, g, m, e, a, f, b)" +
+            "{ var d, c = l[m] || {}, h = document.createElement(f), n = document.getElementsByTagName(f)[0], k = function (a, b, c) { return function () " +
+            "{ a[b]._.push([c, arguments]) }};" +
+            "c[e] = k(c, e, 'set'); d = c[e]; c[a] = {}; c[a]._ = []; d._ = []; c[a][b] = k(c, a, b); a = 0; for (b = 'set add save post open empty reset on off trigger ready setProduct'.split(' '); a < b.length; a++) d[b[a]] = k(c, e, b[a]);" +
+            "a = 0; for (b = ['get', 'token', 'url', 'items']; a < b.length; a++)d[b[a]] = function () { };" +
+            "h.async = !0; h.src = g[f]; n.parentNode.insertBefore(h, n); delete g[f]; d(g);" +
+            "l[m] = c }) (window, _affirm_config, 'affirm', 'checkout', 'ui', 'script', 'ready');";
+        iDiv.innerHTML = strSDK;
+        document.head.appendChild(iDiv);
     }
-    const onNoClickedInPersonalizedItineraryScreen = () => {
-        setShowPersonalizedItineraryScreen(false);
-        setShowThankyouScreen(true);
-        logEvent({ ...reviewSurvey, Action: 'interest_in_personalized_itinerary_clicked_no' });
-        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
-    }
-    const onYesClickedInServiceScreen = () => {
-        setShowServiceScreen(false);
-        setShowThankyouScreen(true)
-        logEvent({ ...reviewSurvey, Action: 'pay_for_service_clicked_yes' });
-        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
-    }
-    const onNoClickedInServiceScreen = () => {
-        setShowServiceScreen(false);
-        setShowThankyouScreen(true);
-        logEvent({ ...reviewSurvey, Action: 'pay_for_service_clicked_no' });
-        logEvent({ ...reviewSurvey, Action: 'thankyou_screen_display' });
-    }
-    return (
-        <>
-            <section class="row m-0 mb-5 p-5 panel" style={{padding: '24px', maxWidth: '873px', height: 'fit-content'}}>
-                <div className="d-flex">
-                    {showPersonalizedItineraryScreen && 
-                        <div className="d-flex">
-                            <p style={{fontFamily: 'Arial', fontSize: '18px', fontWeight: '400',  color: '#313541', width: '485px',height: '42px', gap: '0px', opacity: '0px', lineHeight: '20.7px', textAlign: 'left'}}>Would you be interested in a service that provides a personalized itinerary based on you trip preferences?</p>
-                            <div className='d-flex' style={{width: 'max-content', maxWidth: '316px', height: 'max-context', maxHeight: '48px', gap: '12px'}}>
-                                <button type="button" style={{fontWeight: '300', lineHeight: '21px', fontSize: '14px', color: '#008942', backgroundColor: '#E6F7EE', border: 'none', borderRadius: '4px', width: '152px', height: 'max-context', maxHeight: '48px', padding: '12px 8px', gap: '8px'}} onClick={onYesClickedInPersonalizedItineraryScreen}>Yes</button>
-                                <button type="button" style={{fontWeight: '300',  lineHeight: '21px', fontSize: '14px', color: '#B33100', backgroundColor: '#FCE8E8', border: 'none', borderRadius: '4px' , width: '152px', height: 'max-context', maxHeight: '48px', padding: '12px 8px', gap: '8px'}} onClick={onNoClickedInPersonalizedItineraryScreen}>No</button>
-                            </div>
-                        </div>
-                    }
-                    {showServiceScreen && 
-                        <>
-                            <p>Would you consider paying for this service?</p>
-                            <button type="button" className="btn btn-success btn-sm mr-2" style={{width: '10px'}} onClick={onYesClickedInServiceScreen}>Yes</button>
-                            <button type="button" className="btn btn-danger btn-sm mr-2" onClick={onNoClickedInServiceScreen}>No</button>
-                        </>
-                    }
-                    {showThankyouScreen && 
-                        <>
-                            <p>Thank you for your feedback!</p>
-                        </>
-                    }
-                </div>
-            </section>
-        </>
-    );
 };
 
-export default SurveyScreen;
 
