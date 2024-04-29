@@ -183,4 +183,96 @@ export const getAffirmSDK = () => {
     }
 };
 
+import { helpers } from '@common/react-lib/lib/utils';
+const ChatSdk = (function () {
+    const init = () => {
+        const initializeNewSdkV2 = window.cockpitSetting?.ApplicationSettings?.ChatSdkVersion === 2;
+        if (!initializeNewSdkV2 || window.ChatBotSDK) return;
+        const s = [].slice;
+        window.ChatBotSDK = {
+            eventHistory: [], //q
+            executeEventHistory: null, //fn
+            on: function () {
+                handleArgs(["on", s.call(arguments)]);
+            },
+            off: function () {
+                handleArgs(["off", s.call(arguments)]);
+            },
+            event: function () {
+                handleArgs(["event", s.call(arguments)]);
+            },
+            page: function () {
+                handleArgs(["page", s.call(arguments)]);
+            },
+            test: function () {
+                handleArgs(["test", s.call(arguments)]);
+            },
+            openBot: function () {
+                handleArgs(["openBot"]);
+            }
+        }
+        const isDesktop = window.platform === 'desktop';
+        const parsedValue = JSON.parse(window.cockpitSetting.ApplicationSettings.chatScriptUrl);
+        const iframescripturl = parsedValue.sdkV2;
+        helpers.loadScriptAsync(iframescripturl, 'chatSdk2');
+        window.chatbotAsyncInit = function () {
+            ChatBotSDK.init({
+                clientId: window.appSettings.portalId,
+                platform: isDesktop ? 0 : 1,
+                flowTag: 'new_list', sourceTag: 'listing_page',
+                toolTipText: "Need Help? Chat with our<br/>certified Travel Expert Now!",
+                logEvent: null, 
+                chatBotEvent: null,
+                layoutSettingIcon, layoutSettingIfame, layoutSettingIconToolTip
+            }, function () {
+               if (ChatBotSDK.eventHistory.length > 0) {
+                    ChatBotSDK.eventHistory.forEach(element => {
+                        ChatBotSDK.executeEventHistory.apply(null, element);
+                    });
+                }
+            });
+        }
+       
+    }
+    const layoutSettingIcon = {
+        height: "55px",
+        width: "55px",
+        bottom: "0px",
+        position: "fixed",
+        right: "0px",
+        border: "none",
+        display: "block"
+    }
+    const layoutSettingIfame = {
+        height: "100%",
+        width: "100%",
+        zIndex: "100"
+    }
+    const layoutSettingIconToolTip = {
+        height: "60px",
+        width: "21rem",
+        bottom: "0px",
+        position: "fixed",
+        right: "0px",
+        border: "none",
+        display: "block"
+    }
+    const handleArgs = (args) => {
+        if (ChatBotSDK.executeEventHistory) {
+            ChatBotSDK.executeEventHistory.apply(null, args);
+        } else {
+            ChatBotSDK.eventHistory.push(args);
+        }
+    }
+    const tracking = (setChatIconShown) => {
+        const chatIconShownTrue = () => {
+            setChatIconShown && setChatIconShown(true);
+        };
+        window.ChatBotSDK.off("iframe-rendered", chatIconShownTrue);
+
+        window.ChatBotSDK.on("iframe-rendered", chatIconShownTrue);
+    };
+    return { init, tracking };
+})();
+export default ChatSdk;
 
