@@ -275,4 +275,32 @@ const ChatSdk = (function () {
     return { init, tracking };
 })();
 export default ChatSdk;
+***********************************************************8
+Alter Proc SP_DTTripMemoryInsert
+(
+@TransactionId int,
+@PersonGuid uniqueidentifier,
+@Version int,
+@Title varchar(255),
+@Content Text,
+@PlaceOfIntrest varchar(255),
+@TripMemoryID int output
+)
 
+As
+Begin
+
+	SET NOCOUNT ON
+
+	DECLARE @ParentTripMemoryID int, @currentDateTime datetime = SYSDATETIME()
+
+	INSERT INTO TripMemory (TransactionId,PersonGuid,Title,Content,PlaceOfIntrest,ModifiedOn,Version,Status,isDeleted)
+		values (@TransactionId,@PersonGuid,@Title,@Content,@PlaceOfIntrest,@currentDateTime,@Version,0,0)
+	select @ParentTripMemoryID = SCOPE_IDENTITY();
+
+	INSERT INTO TripMemory (ParentTripMemoryID,TransactionId,PersonGuid,Title,Content,PlaceOfIntrest,ModifiedOn,Version,Status,isDeleted)
+		values (@ParentTripMemoryID,@TransactionId,@PersonGuid,@Title,@Content,@PlaceOfIntrest,@currentDateTime,@Version,0,0)
+	select @TripMemoryID = SCOPE_IDENTITY();
+
+End
+GO
