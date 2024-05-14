@@ -304,3 +304,167 @@ Begin
 
 End
 GO
+
+
+using AirConfirmationApi;
+using AirConfirmationApi.BussinessObjects;
+using AirConfirmationApi.DatabaseAccess;
+using AirConfirmationApi.HealthCheck;
+using AirConfirmationApi.Logger;
+using AirConfirmationApi.Services.Airport;
+using AirConfirmationApi.Services.Ancillary;
+using AirConfirmationApi.Services.BookingData;
+using AirConfirmationApi.Services.Bundle;
+using AirConfirmationApi.Services.Cockpit;
+using AirConfirmationApi.Services.Context;
+using AirConfirmationApi.Services.GST;
+using AirConfirmationApi.Services.Loyalty;
+using AirConfirmationApi.Services.MealLounge;
+using AirConfirmationApi.Services.PassNFly;
+using AirConfirmationApi.Services.TerminalInfo;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
+using Microsoft.Extensions.Diagnostics.HealthChecks;
+using Microsoft.OpenApi.Models;
+using NLog;
+using NLog.Web;
+using System.Net.Http.Headers;
+using System.Text.Json.Serialization;
+
+var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
+logger.Debug("init main");
+
+try
+{
+    var builder = WebApplication.CreateBuilder(args);
+
+    var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
+    var nlogPath = env == "Production" ? "/nlog.config" : $"/nlog.{env}.config";
+    LogManager.LoadConfiguration(string.Concat(Directory.GetCurrentDirectory(), nlogPath));
+    builder.Logging.ClearProviders().AddConsole();
+    builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
+    builder.Host.UseNLog();
+    Log.SetLogger(logger);
+
+    // Add services to the container.
+    var config = builder.Configuration;
+    config.AddJsonFile("appsettings.json").AddJsonFile($"appsettings.{env}.json", optional: true);
+    var connectionStrings = config.GetSection("ConnectionStrings").Get<ConnectionStrings>();
+    var loyaltySettings = config.GetSection("LoyaltySettings").Get<LoyaltySettings>();
+    var bundleSettings = config.GetSection("BundleApiSettings").Get<BundleDetailsRequest>();
+    var commonServiceUrl = config.GetSection("CommonServiceUrl").Get<string>();
+    var commonAncillarySettings = config.GetSection("CommonAncillarySettings").Get<CommonAncillaryDetails>();
+    var gstSettings = config.GetSection("GSTSettings").Get<GstDetails>();
+    var passNFlySettings = config.GetSection("PassNFlySettings").Get<PassNFlySettings>();
+    var ccdBookingDataApi = config.GetSection("CcdBookingDataApi").Get<CcdBookingDataRequest>();
+    var cockpitSettingsUrl = config["CockpitSettingsUrl"];
+    var portalIds = config.GetSection("Portals").Get<List<int>>();
+
+    builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
+    builder.Services.AddControllers().AddJsonOptions(x =>
+    {
+        // serialize enums as strings in api responses (e.g. Role)
+        x.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+    });
+
+    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+    builder.Services.AddEndpointsApiExplorer();
+    builder.Services.AddApplicationInsightsTelemetry();
+    builder.Services.AddSwaggerGen();
+    builder.Services.AddSingleton<IDatabaseRepository>(x => new DatabaseRepository(connectionStrings.ConnectionStringReadDatabase,
+        connectionStrings.ConnectionStringAlternateLogDatabase, connectionStrings.ConnectionStringLogDatabase, connectionStrings.ConnectionStringBackOffice, connectionStrings.ConnectionStringReportDatabase));
+    builder.Services.AddSingleton<ICockpitService>(x => new CockpitService(cockpitSettingsUrl, portalIds));
+    builder.Services.AddSingleton<ILoyaltyService>(x => new LoyaltyService(loyaltySettings));
+    builder.Services.AddSingleton<IAirlineService>(x => new AirlineService(commonServiceUrl ?? ""));
+    builder.Services.AddSingleton<IAirportService>(x => new AirportService(commonServiceUrl ?? ""));
+    builder.Services.AddSingleton<IPassNFlyService>(x => new PassNFlyService(passNFlySettings ?? new PassNFlySettings()));
+    builder.Services.AddSingleton<IBundleService>(x => new BundleService(bundleSettings));
+    builder.Services.AddSingleton<ICommonAncillaryService>(x => new CommonAncillaryService(commonAncillarySettings ?? new CommonAncillaryDetails()));
+    builder.Services.AddSingleton<IMealLoungeService>(x => new MealLoungeService(commonAncillarySettings ?? new CommonAncillaryDetails()));
+    builder.Services.AddSingleton<IGstService>(x => new GstSevice(gstSettings));
+    builder.Services.AddHttpClient<IBookingDataService, BookingDataService>((client) =>
+    {
+        client.BaseAddress = new Uri(ccdBookingDataApi.URL);
+        client.Timeout = TimeSpan.FromMilliseconds(ccdBookingDataApi.TimeOut);
+        client.DefaultRequestHeaders.Accept.Clear();
+        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+    });
+    builder.Services.AddSingleton<ITerminalInfoService>(x => new TerminalInfoService());
+    builder.Services.AddScoped<IAirContext>(x => new AirContext());
+
+    //health check
+    builder.Services.AddHealthChecks().AddCheck<CockpitApiHealthCheck>("CockpitApiHealth");
+
+    var app = builder.Build();
+    app.Logger.LogInformation("Host created");
+    await app.Services.GetRequiredService<ICockpitService>().LoadCockpitSettingsAsync();
+    await app.Services.GetRequiredService<IAirportService>().LoadAirportData();
+    await app.Services.GetRequiredService<IAirlineService>().LoadAirlineDetails();
+    // Configure the HTTP request pipeline.
+    app.Use(async (context, next) =>
+    {
+        var airContext = context.RequestServices.GetService<IAirContext>();
+        airContext.Init(context.Request);
+        airContext.SetDependencies(context.RequestServices, context.Request);
+        await next();
+    });
+    // No Cache Headers
+    app.Use(async (context, next) =>
+    {
+        context.Response.Headers.Add("Cache-Control", "private, no-cache, no-store, must-revalidate");
+        context.Response.Headers.Add("Expires", "-1");
+        context.Response.Headers.Add("Pragma", "no-cache");
+        await next();
+    });
+    if (app.Environment.IsDevelopment())
+    {
+        app.UseDeveloperExceptionPage();
+		if (Environment.UserDomainName == "CORP") //support in local machine
+		{
+			app.UseSwagger();
+			app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "AirConfirmationApi v1"));
+		}
+		else
+		{
+			app.UseSwagger(options =>
+			{
+				options.PreSerializeFilters.Add((swagger, httpReq) =>
+				{
+					swagger.Servers = new List<OpenApiServer>() { new OpenApiServer() { Url = $"https://{httpReq.Host}/airconfirmationapi" } };
+				});
+			});
+			app.UseSwaggerUI(c => c.SwaggerEndpoint("/airconfirmationapi/swagger/v1/swagger.json", "AirConfirmationApi v1"));
+		}
+        app.UseCors(builder => builder
+            .AllowAnyOrigin()
+            .AllowAnyMethod()
+            .AllowAnyHeader());
+    }
+    else
+    {
+        app.UseHttpsRedirection();
+    }
+    app.UseRouting();
+    app.UseAuthorization();
+    app.MapControllers();
+    app.UseHealthChecks("/healthcheck", new HealthCheckOptions()
+    {
+        Predicate = _ => true,
+        AllowCachingResponses = false
+    });
+    app.UseHealthChecks("/ping", new HealthCheckOptions()
+    {
+        Predicate = _ => false,
+    });
+    app.Run();
+}
+catch (Exception exception)
+{
+    //NLog: catch setup errors
+    logger.Error(exception, "Stopped program because of exception");
+    throw;
+}
+finally
+{
+    // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
+    LogManager.Shutdown();
+}
