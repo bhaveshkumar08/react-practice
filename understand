@@ -468,3 +468,106 @@ finally
     // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
     LogManager.Shutdown();
 }
+
+
+index.js:10 Uncaught (in promise) TypeError: (0 , _api__WEBPACK_IMPORTED_MODULE_0__.tripmemoryApi) is not a function
+    at _callee$ (index.js:10:41)
+    at tryCatch (index.js:2:1)
+    at Generator.<anonymous> (index.js:2:1)
+    at Generator.next (index.js:2:1)
+    at asyncGeneratorStep (index.js:2:1)
+    at _next (index.js:2:1)
+    at index.js:2:1
+    at new Promise (<anonymous>)
+    at index.js:2:1
+    at index.js:27:2
+_callee$	@	index.js:10
+tryCatch	@	index.js:2
+(anonymous)	@	index.js:2
+(anonymous)	@	index.js:2
+asyncGeneratorStep	@	index.js:2
+_next	@	index.js:2
+(anonymous)	@	index.js:2
+(anonymous)	@	index.js:2
+(anonymous)	@	index.js:27
+(anonymous)	@	index.js:8
+boundActionCreators.<computed>	@	bindActionCreators.js:8
+componentDidMount	@	tripMemory.desktop.js:20
+commitLifeCycles	@	react-dom.development.js:20663
+commitLayoutEffects	@	react-dom.development.js:23426
+callCallback	@	react-dom.development.js:3945
+invokeGuardedCallbackDev	@	react-dom.development.js:3994
+invokeGuardedCallback	@	react-dom.development.js:4056
+commitRootImpl	@	react-dom.development.js:23151
+unstable_runWithPriority	@	scheduler.development.js:468
+runWithPriority$1	@	react-dom.development.js:11276
+commitRoot	@	react-dom.development.js:22990
+performSyncWorkOnRoot	@	react-dom.development.js:22329
+(anonymous)	@	react-dom.development.js:11327
+unstable_runWithPriority	@	scheduler.development.js:468
+runWithPriority$1	@	react-dom.development.js:11276
+flushSyncCallbackQueueImpl	@	react-dom.development.js:11322
+flushSyncCallbackQueue	@	react-dom.development.js:11309
+scheduleUpdateOnFiber	@	react-dom.development.js:21893
+enqueueSetState	@	react-dom.development.js:12467
+push../node_modules/react/cjs/react.development.js.Component.setState	@	react.development.js:365
+LoadableComponent._setStateWithMountCheck	@	index.js:275
+(anonymous)	@	index.js:331
+step	@	index.js:76
+(anonymous)	@	index.js:57
+fulfilled	@	index.js:48
+Promise.then (async)		
+step	@	index.js:50
+(anonymous)	@	index.js:51
+__webpack_modules__../node_modules/@react-loadable/revised/index.js.__awaiter	@	index.js:47
+LoadableComponent._loadModule	@	index.js:278
+LoadableComponent	@	index.js:242
+constructClassInstance	@	react-dom.development.js:12716
+updateClassComponent	@	react-dom.development.js:17425
+beginWork	@	react-dom.development.js:19073
+beginWork$1	@	react-dom.development.js:23940
+performUnitOfWork	@	react-dom.development.js:22779
+workLoopSync	@	react-dom.development.js:22707
+renderRootSync	@	react-dom.development.js:22670
+performSyncWorkOnRoot	@	react-dom.development.js:22293
+(anonymous)	@	react-dom.development.js:11327
+unstable_runWithPriority	@	scheduler.development.js:468
+runWithPriority$1	@	react-dom.development.js:11276
+flushSyncCallbackQueueImpl	@	react-dom.development.js:11322
+flushSyncCallbackQueue	@	react-dom.development.js:11309
+scheduleUpdateOnFiber	@	react-dom.development.js:21893
+enqueueSetState	@	react-dom.development.js:12467
+push../node_modules/react/cjs/react.development.js.Component.setState	@	react.development.js:365
+LoadableComponent._setStateWithMountCheck	@	index.js:275
+(anonymous)	@	index.js:331
+step	@	index.js:76
+(anonymous)	@	index.js:57
+fulfilled	@	index.js:48
+Promise.then (async)		
+step	@	index.js:50
+(anonymous)	@	index.js:51
+__webpack_modules__../node_modules/@react-loadable/revised/index.js.__awaiter	@	index.js:47
+LoadableComponent._loadModule	@	index.js:278
+LoadableComponent	@	index.js:242
+constructClassInstance	@	react-dom.development.js:12716
+updateClassComponent	@	react-dom.development.js:17425
+beginWork	@	react-dom.development.js:19073
+beginWork$1	@	react-dom.development.js:23940
+performUnitOfWork	@	react-dom.development.js:22779
+workLoopSync	@	react-dom.development.js:22707
+renderRootSync	@	react-dom.development.js:22670
+performSyncWorkOnRoot	@	react-dom.development.js:22293
+scheduleUpdateOnFiber	@	react-dom.development.js:21881
+updateContainer	@	react-dom.development.js:25482
+(anonymous)	@	react-dom.development.js:26021
+unbatchedUpdates	@	react-dom.development.js:22431
+legacyRenderSubtreeIntoContainer	@	react-dom.development.js:26020
+hydrate	@	react-dom.development.js:26086
+(anonymous)	@	index.js:179
+Promise.then (async)		
+./src/shared/index.js	@	index.js:178
+__webpack_require__	@	bootstrap:21
+checkDeferredModulesImpl	@	jsonp chunk loading:571
+__webpack_require__.x	@	jsonp chunk loading:584
+(anonymous)	@	startup:3
+(anonymous)
