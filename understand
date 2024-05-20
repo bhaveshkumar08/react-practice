@@ -571,3 +571,256 @@ checkDeferredModulesImpl	@	jsonp chunk loading:571
 __webpack_require__.x	@	jsonp chunk loading:584
 (anonymous)	@	startup:3
 (anonymous)
+
+
+api:
+import axios from 'axios';
+import { responseInterCeptor, requestInterceptor, removeAjaxLoader } from './axiosInterceptor';
+export default (() => {
+    const userAgent = window.platform === 'native' ? { 'User-Agent': window.navigator.userAgent } : {};
+    const clientInfo = { 'portal': window.PORTAL_ID, 'platform': window.platform === 'native' ? window.device : window.platform };
+    const tripmemoryApi = axios.create({
+        baseURL: (window.platform === 'native' ? window.URL_PREFIX : '') + '/tripmemoryapi/api/tripmemory/',
+        headers: {
+            ...userAgent, ...clientInfo,
+            'Content-Type': 'application/json;charset=UTF-8'
+        },
+        timeout: 120000,
+        responseType: 'json'
+    });
+    if (tripmemoryApi.interceptors) {
+        tripmemoryApi.interceptors.request.use(function (config) {
+            requestInterceptor(config);
+            return config;
+        }, function (error) {
+            // Do something with request error    
+            removeAjaxLoader(error);
+            return Promise.reject(error);
+        });
+        tripmemoryApi.interceptors.response.use(function (res) {
+            responseInterCeptor(res);
+            return res;
+        }, function (error) {
+            removeAjaxLoader(error);
+            return Promise.reject(error);
+        });
+    }
+    return tripmemoryApi;
+});
+
+axios interseptor:
+import axios from 'axios';
+import { helpers, gtmSnippets } from '@common/react-lib/lib/utils';
+import history from 'customHistory';
+import { spinner } from 'utils/spinner';
+let loadAnimationCount = 0;
+const getAppversionAndRefresh = function () {
+    if (window.APP_VERSION) {
+        axios.get('/confirmationnext/getappversion')
+            .then(res => {
+                if (res && res.data && res.data.appVersion && window.APP_VERSION !== res.data.appVersion) {
+                    const currentversion = window.APP_VERSION.split('.').join("");
+                    const updatedVersion = res.data.appVersion.split('.').join("");
+                    if (parseInt(updatedVersion, 10) > parseInt(currentversion, 10))
+                        location.reload(true);
+                }
+            });
+    }
+};
+
+const handleSessionTimeOutEvent = (res, config) => {
+    if (window.platform === 'native') return;
+    //log to launchpad
+    if (window.Launchpad && window.Launchpad.logEvent)
+        window.Launchpad.logEvent("session_timeout", {
+            endTime: new Date(),
+            api: config.url,
+            server: res.MachineName,
+            location: window.location.pathname,
+            affiliateId: window.appSettings.affiliateId
+        });
+};
+
+export const removeAjaxLoader = (showLoader) => {
+    if (showLoader) {
+        loadAnimationCount--;
+    }
+    if (loadAnimationCount <= 0)
+        showHideAnimationLoader(false);
+};
+export const requestInterceptor = (config) => {
+    if (config.showLoader) {
+        loadAnimationCount++;
+        showHideAnimationLoader(true);
+    }
+    if (config.checkAppVer)
+        getAppversionAndRefresh();
+    return config;
+};
+export const responseInterCeptor = (response) => {
+    removeAjaxLoader(response.config.showLoader);
+    const res = response.data;
+    if (res && res.hasOwnProperty('IsSession') && !res.IsSession) {
+        handleSessionTimeOutEvent(res, response.config);
+        onSessionExpire();
+    }
+    return response;
+};
+
+const onSessionExpire = () => {
+    if (window.platform === 'native') {
+        return onNativeSessionExpire();
+    }
+    const listingDeeplink = helpers.getDataFromSessionStorage('listing_deeplink') || helpers.getDataFromLocalStorage('listing_deeplink');
+    const paymentDeeplink = helpers.getDataFromSessionStorage('payment_deeplink') || helpers.getDataFromLocalStorage('payment_deeplink');
+    //if listing_deeplink is there in localStorage
+    if ((window.location.pathname.indexOf('/review') >= 0 || window.location.pathname.indexOf('/pax') >= 0 || window.location.pathname.indexOf('/seatmap') >= 0 || window.location.pathname.indexOf('/book') >= 0 || window.location.pathname.indexOf('/payment') >= 0) && paymentDeeplink) {
+        gtmSnippets.TrackGACommonEvent('SessionTimeOut', 'Payment Page');
+        window.setTimeout(() => {
+            window.location.href = window.location.origin + window.URL_PREFIX + "/air/clienthandler?" + paymentDeeplink;
+        }, 300);
+    } else if (listingDeeplink) {
+        window.setTimeout(() => {
+            window.location.href = window.location.origin + window.URL_PREFIX + "/air/listing?" + listingDeeplink;
+        }, 300);
+    }
+    else {
+        window.location.href = window.location.origin + window.URL_PREFIX + '?SESSIONTIMEOUT=sessiontimeout';
+    }
+};
+
+const onNativeSessionExpire = () => {
+    history.push({ pathname: '/' });
+};
+
+export const showHideAnimationLoader = (show) => {
+    if (window.document) {
+        const loadAnimation = document.querySelector('.page-loader');
+        if (loadAnimation) {
+            if (show)
+                loadAnimation.classList.add('ajax-loading');
+            else
+                loadAnimation.classList.remove('ajax-loading');
+        }
+    }
+    else if (spinner) {
+        spinner.toggleAnimation(show);
+    }
+};
+export default { responseInterCeptor, requestInterceptor, removeAjaxLoader };
+
+action:
+import { tripmemoryApi } from '../../api';
+import { SET_TRIPMEMORY_DETAILS } from '../types';
+
+export const getTripMemoryDetails = (transactionGuid, profileGuid) => async (dispatch) => {
+    const params = {
+        TransactionGuid: transactionGuid,
+        ProfileGuid: profileGuid
+    };
+    
+    const response = await tripmemoryApi().get('get', params);
+    if (response && response.data) {
+        const tripmemoryData = response.data;
+        const tripmemoryDetails = {
+            transactionId: tripmemoryData.transactionId,
+            tripmemoryId: tripmemoryData.TripmemoryId,
+            version: tripmemoryData.version,
+            title: tripmemoryData.title,
+            content: tripmemoryData.content,
+            tripDetail: tripmemoryData.tripDetail,
+            status: tripmemoryData.status
+        };
+        dispatch({ type: SET_TRIPMEMORY_DETAILS, payload: tripmemoryDetails });
+    }
+    else {
+        dispatch({ type: SET_TRIPMEMORY_DETAILS, payload: null });
+    }
+};
+
+import React, { Component} from "react";
+import { connect } from 'react-redux';
+import 'styles/scss/components/c-confirmation.scss';
+import 'styles/scss/components/c-tripmemory.scss';
+import { getTripMemoryDetails } from 'actions/tripMemory';
+
+
+
+class TripMemory extends Component {
+    constructor(props) {
+        super(props);
+        this.state = {
+            showShearPopUp:false,
+            
+        };
+    }
+
+    componentDidMount() {
+        debugger;
+        this.props.getTripMemoryDetails("03F35FBD-8CA9-4D92-9F35-A64032971B8C", "FB192128-9619-433E-AF4D-815BCB7BDFC9");
+    }
+    componentDidUpdate() {  
+    }
+    openSharePopUp=()=>{
+        const showPopUp=this.state.showShearPopUp;
+        this.setState({showShearPopUp:!showPopUp});
+    }
+   
+    render() {
+        return (
+            <article className="tripmemory px-5 pt-5 pb-7 mx-auto is--white-background ">
+                <div className="tripmemory__header mb-5">
+                    <div className="tripmemory__header__details d-flex p-3 is--white-background text-center align-items-center ">
+                        <div className="tripmemory__header__details--content d-flex text-center align-items-center justify-content-between">
+                              <div className="madetrip text-xs ">Made with</div>
+                              <i className="tripimg"></i>
+                              <div className="tripmemories text-base font-weight-bold">Trip memories</div>
+                              <div className="beta text-sm">beta</div>
+                        </div>
+                        <div className="tripmemory__header__details--warning madetrip text-xs pl-2">
+                            AI output can be misleading or wrong
+                        </div>
+                    </div>    
+                </div>
+                <div className="tripmemory__userdetails p-4 d-flex text-center align-items-center justify-content-between is--white-background mb-5">
+                        <div className="tripmemory__userdetails--userinfo d-flex text-center align-items-center justify-content-between">
+                              <div className="username pr-2 text-base font-weight-bold">Mia Rodriguez</div>
+                              <div>
+                              <div className="tripdetails pr-2 text-md d-inline-block">Trip to San Diego, USA</div>
+                              <div className="triptime pl-1 text-md d-inline-block">May 3 - May 12, 2024</div>
+                              </div>
+                              
+                        </div>
+                        <div className="tripmemory__userdetails--shearbtn d-flex position-relative" onClick={()=>this.openSharePopUp()}>
+                            <i className="tripshareimg"></i>
+                            <span className="text-lg font-weight-bold is--white-color">Share</span>
+                            {this.state.showShearPopUp &&<div className="position-absolute is--white-background sheardpopup d-flex p-2 pr-3 ">
+                                <div className="d-flex"><i className="tripsharewithx mr-2"></i>Share on X</div>
+                                <div className="d-flex"><i className="tripsharewithfb mr-2"></i>Share on Facebook</div>
+                            </div>}
+                        </div>
+                    </div>
+                    <div className="tripmemory__content ">
+                       <div className="tripmemory__content--header font-weight-bold mb-4">
+                             A Family Adventure: Exploring the Magic of Miami
+                       </div>
+                       <div className="tripmemory__content--details text-xxl">
+                        <div className="font-weight-bold mb-1">Hey there, fellow travelers! </div>
+                        <div>
+                          Come along as I take you through the whirlwind adventure my family and I recently embarked on in the vibrant city of Miami. From bustling streets to tranquil beaches, our trip was nothing short of magical!
+                          After a brief layover in Atlanta, we touched down in Miami, greeted by the warm embrace of the Florida sunshine. Our group of five, including two adults, one senior, one child, and an adorable infant, wasted no time diving headfirst into the city's endless adventures.</div>
+                       </div>
+                    </div>
+            </article>
+            )
+    }
+}
+const mapStateToProps = (state) => ({
+    tripmemoryDetails: state.tripmemoryDetails.TripMemoryDetails
+});
+export const mapActionToProps = { getTripMemoryDetails };
+export { TripMemory };
+export default connect(
+    mapStateToProps,
+    mapActionToProps
+)(TripMemory);
