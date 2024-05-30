@@ -824,3 +824,17 @@ export default connect(
     mapStateToProps,
     mapActionToProps
 )(TripMemory);
+
+
+PS C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI> dotnet run start:dev
+The launch profile "(Default)" could not be applied.
+A usable launch profile could not be located.
+{ "Logger": "Program", "Hostname": "GGTPML0342968", "LogGenerationTime": "2024-05-30T12:56:03.777", "Level": "Error", "message": "Stopped program because of exception", "ProcessID": "29488", "ThreadID": "1", "Exception": "System.IO.FileNotFoundException\tFailed to load NLog LoggingConfiguration. Searched the following locations:->- C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI/nlog..config->\tNLog.LogFactory LoadConfiguration(System.String, Boolean)\t   at NLog.LogFactory.LoadConfiguration(String configFile, Boolean optional)->   at NLog.LogFactory.LoadConfiguration(String configFile)->   at NLog.LogManager.LoadConfiguration(String configFile)->   at Program.<Main>$(String[] args) in C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI\\Program.cs:line 39", "Exception_Type": "System.IO.FileNotFoundException", "StackTrace": "   at NLog.LogFactory.LoadConfiguration(String configFiogram.<Main>$(String[] args) in C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI\\Program.cs:line 39", "Environment": "production", "uid": "0", "portal": "0", "platform": "0", "transactionId": "0", "transactionGuid": "0", "tenantId": "0", "contractlocatorkey": "0", "xmlid": "0", "application": "digital-tripmemoryapi", "loggroup": "digital" }
+Unhandled exception. System.IO.FileNotFoundException: Failed to load NLog LoggingConfiguration. Searched the following locations:
+- C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI/nlog..config
+
+File name: 'C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI/nlog..config'
+   at NLog.LogFactory.LoadConfiguration(String configFile, Boolean optional)
+   at NLog.LogManager.LoadConfiguration(String configFile)
+   at Program.<Main>$(String[] args) in C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI\Program.cs:line 39
+   at Program.<Main>(String[] args)
