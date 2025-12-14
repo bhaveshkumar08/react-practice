@@ -1,840 +1,255 @@
-const express = require("express");
-var cookieParser = require('cookie-parser');
-const path = require("path");
-const open = require("open");
-const compression = require("compression");
-const cors = require("cors");
-const logger = require("morgan");
-const { preloadAll } = require("@react-loadable/revised");
-import { createProxyMiddleware } from 'http-proxy-middleware';
-const webpack = require("webpack");
-const https = require("https");
-const fs = require("fs");
-const device = require('express-device');
-const loadConfig = require("./helpers/loadConfig");
-const { getPlatformFromRequest } = require("./utils/requestContext");
-const resourcesConfigLoader = require("./helpers/resourcesConfigLoader");
-const { replaceConfigSettings } = require("./helpers/htmlUtility");
-const airRouter = require("./airRouter");
-const { initTimer } = require("@common/frontend-configuration/lib/refresh");
-const helmet = require('helmet');
+import React, { Component } from "react";
+import PropTypes from "prop-types";
+import { GoogleAdsConfig, getTargeting, adLogger } from "utils/GoogleAdsHelper";
+import { saveInSessionStorage, getDataFromSessionStorage } from "utils/storageHelper";
+import { logEvent } from "logger";
+import { fmgAds } from "utils/eventNames";
+import { connect } from "react-redux";
 
-const isEnableSsl = true;
-const app = express();
-app.use(helmet.hsts({
-    maxAge: 31536000,
-    includeSubDomains: false,
-    preload: true,
-    force: true,
-}));
-app.use(device.capture());
-if (global.MIDDLEWARE_URL) {
-    app.use('/airautosuggestapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/api', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/airpaymentapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/baggageapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/seatapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/clubmiles', createProxyMiddleware({
-        target: global.MIDDLEWARE_URL, changeOrigin: true,
-        onProxyReq: (request) => request.setHeader("origin", global.MIDDLEWARE_URL)
-    }));
-    app.use('/clubmiles-auth', createProxyMiddleware({
-        target: global.MIDDLEWARE_URL, changeOrigin: true,
-        onProxyReq: (request) => request.setHeader("origin", global.MIDDLEWARE_URL)
-    }));
-    app.use('/additionalserviceapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/appsetting', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/saverClubMembershipApi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-    app.use('/airsettingapi', createProxyMiddleware({ target: global.MIDDLEWARE_URL, changeOrigin: true }));
-}
-if (global.AIR_API_URL) {
-    app.use('/airsearchapi', createProxyMiddleware({
-        target: global.AIR_API_URL,
-        changeOrigin: true,
-    }));
-}
-app.use(cookieParser());
-// set no-cache header for all requests.
-app.use(function (req, res, next) {
-    res.header("Cache-Control", "private, no-cache, no-store, must-revalidate");
-    res.header("Expires", "-1");
-    next();
-});
-
-process.on("unhandledRejection", (err) => {
-    throw err;
-});
-
-app.use(logger("dev"));
-app.use(compression());
-app.use(cors());
-
-let config;
-if (process.env.ENABLE_ANALYZER) {
-    config = require("../webpack/webpack.config.analyzer");
-} else {
-    config = require("../webpack/webpack.config.dev");
-}
-const compiler = webpack(config);
-const devMiddlewareInstance = require("webpack-dev-middleware")(compiler, {
-    publicPath: config.output.publicPath,
-});
-app.use(devMiddlewareInstance);
-app.use(require("webpack-hot-middleware")(compiler));
-
-/* eslint-disable no-console */
-app.use(global.URL_PREFIX, airRouter);
-
-app.use("/*", renderHtmlRoute);
-
-initApp()
-    .then(() => {
-        console.log("Loading Configuration");
-        const configsToLoad = global.configsToLoad || {
-            PAGE_RESOURCES: true,
-            SETTINGS: true,
-            LAUNCHPAD_CONFIG: false,
-        };
-        console.log("default config load", configsToLoad);
-        return loadConfig(configsToLoad, devMiddlewareInstance, compiler);
-    })
-    .then(() => initTimer("web"))
-    .then(preloadAll)
-    .then(() => {
-        if (isEnableSsl) {
-            const privateKey = fs.readFileSync("./key.pem");
-            const certificate = fs.readFileSync("./cert.pem");
-            const credentials = {
-                key: privateKey,
-                cert: certificate,
-                passphrase: "aaaa1234",
-            };
-            const httpsServer = https.createServer(credentials, app);
-            httpsServer.listen(8443, function (err) {
-                if (err) {
-                    process.exit(1);
-                } else {
-                    open(`https://localhost:8443/`);
-                }
-            });
-        }
-        app.listen(3020, function (err) {
-            if (err) {
-                process.exit(1);
-            } else {
-                open(`http://localhost:3020/`);
-            }
-        });
-    })
-    .catch(() => {
-        process.exit(1);
-    });
-
-function initApp() {
-    return new Promise((resolve, reject) => {
-        const filename = path.join(compiler.outputPath, "index.html");
-        devMiddlewareInstance.waitUntilValid(() => {
-            compiler.outputFileSystem.readFile(filename, function (err, content) {
-                if (err) {
-                    return reject(err);
-                }
-                resolve(true);
-            });
-        });
-    });
-}
-
-function renderHtmlRoute(req, res, next) {
-    const culture = resourcesConfigLoader.getCultureFromRequest(req);
-    const filename = path.join(compiler.outputPath, "index.html");
-    const platform = getPlatformFromRequest(req);
-    devMiddlewareInstance.waitUntilValid(() => {
-        compiler.outputFileSystem.readFile(filename, function (err, result) {
-            if (err) {
-                return next(err);
-            }
-            replaceConfigSettings(result.toString(), culture, platform).then((newContent) => {
-                res.set("content-type", "text/html");
-                res.send(newContent);
-                res.end();
-            });
-        });
-    });
-}
-
-export const getAffirmSDK = () => {
-    if (!document.getElementById('affirmSettings')) {
-        const isPassAffirmData = window.cockpitSetting.ApplicationSettings.isPassAffirmData        
-        const iDiv = document.createElement('script');
-        iDiv.id = 'affirmSettings';
-        const countryCode = window.appSettings.portalId === 93 ? "CAN" : "USA";
-        const affirmData = isPassAffirmData ? ",locale:'" + window.appSettings.pixelCulture.replace("-","_") + "',country_code:'" + countryCode + "'" : "";
-        let strSDK = " _affirm_config = { public_api_key: '" + window.cockpitSetting.ApplicationSettings.AffirmApiKey + "', script: '" + window.cockpitSetting.ApplicationSettings.AffirmApiUrl + "'," +
-            "session_id: 'b4b9905b-6269-4b43-ac0c-b5139ef9c7b9'"+affirmData+"}; ";
-        strSDK = strSDK + " (function (l, g, m, e, a, f, b)" +
-            "{ var d, c = l[m] || {}, h = document.createElement(f), n = document.getElementsByTagName(f)[0], k = function (a, b, c) { return function () " +
-            "{ a[b]._.push([c, arguments]) }};" +
-            "c[e] = k(c, e, 'set'); d = c[e]; c[a] = {}; c[a]._ = []; d._ = []; c[a][b] = k(c, a, b); a = 0; for (b = 'set add save post open empty reset on off trigger ready setProduct'.split(' '); a < b.length; a++) d[b[a]] = k(c, e, b[a]);" +
-            "a = 0; for (b = ['get', 'token', 'url', 'items']; a < b.length; a++)d[b[a]] = function () { };" +
-            "h.async = !0; h.src = g[f]; n.parentNode.insertBefore(h, n); delete g[f]; d(g);" +
-            "l[m] = c }) (window, _affirm_config, 'affirm', 'checkout', 'ui', 'script', 'ready');";
-        iDiv.innerHTML = strSDK;
-        document.head.appendChild(iDiv);
-    }
-};
-
-import { helpers } from '@common/react-lib/lib/utils';
-const ChatSdk = (function () {
-    const init = () => {
-        const initializeNewSdkV2 = window.cockpitSetting?.ApplicationSettings?.ChatSdkVersion === 2;
-        if (!initializeNewSdkV2 || window.ChatBotSDK) return;
-        const s = [].slice;
-        window.ChatBotSDK = {
-            eventHistory: [], //q
-            executeEventHistory: null, //fn
-            on: function () {
-                handleArgs(["on", s.call(arguments)]);
-            },
-            off: function () {
-                handleArgs(["off", s.call(arguments)]);
-            },
-            event: function () {
-                handleArgs(["event", s.call(arguments)]);
-            },
-            page: function () {
-                handleArgs(["page", s.call(arguments)]);
-            },
-            test: function () {
-                handleArgs(["test", s.call(arguments)]);
-            },
-            openBot: function () {
-                handleArgs(["openBot"]);
-            }
-        }
-        const isDesktop = window.platform === 'desktop';
-        const parsedValue = JSON.parse(window.cockpitSetting.ApplicationSettings.chatScriptUrl);
-        const iframescripturl = parsedValue.sdkV2;
-        helpers.loadScriptAsync(iframescripturl, 'chatSdk2');
-        window.chatbotAsyncInit = function () {
-            ChatBotSDK.init({
-                clientId: window.appSettings.portalId,
-                platform: isDesktop ? 0 : 1,
-                flowTag: 'new_list', sourceTag: 'listing_page',
-                toolTipText: "Need Help? Chat with our<br/>certified Travel Expert Now!",
-                logEvent: null, 
-                chatBotEvent: null,
-                layoutSettingIcon, layoutSettingIfame, layoutSettingIconToolTip
-            }, function () {
-               if (ChatBotSDK.eventHistory.length > 0) {
-                    ChatBotSDK.eventHistory.forEach(element => {
-                        ChatBotSDK.executeEventHistory.apply(null, element);
-                    });
-                }
-            });
-        }
-       
-    }
-    const layoutSettingIcon = {
-        height: "55px",
-        width: "55px",
-        bottom: "0px",
-        position: "fixed",
-        right: "0px",
-        border: "none",
-        display: "block"
-    }
-    const layoutSettingIfame = {
-        height: "100%",
-        width: "100%",
-        zIndex: "100"
-    }
-    const layoutSettingIconToolTip = {
-        height: "60px",
-        width: "21rem",
-        bottom: "0px",
-        position: "fixed",
-        right: "0px",
-        border: "none",
-        display: "block"
-    }
-    const handleArgs = (args) => {
-        if (ChatBotSDK.executeEventHistory) {
-            ChatBotSDK.executeEventHistory.apply(null, args);
-        } else {
-            ChatBotSDK.eventHistory.push(args);
-        }
-    }
-    const tracking = (setChatIconShown) => {
-        const chatIconShownTrue = () => {
-            setChatIconShown && setChatIconShown(true);
-        };
-        window.ChatBotSDK.off("iframe-rendered", chatIconShownTrue);
-
-        window.ChatBotSDK.on("iframe-rendered", chatIconShownTrue);
-    };
-    return { init, tracking };
-})();
-export default ChatSdk;
-***********************************************************8
-Alter Proc SP_DTTripMemoryInsert
-(
-@TransactionId int,
-@PersonGuid uniqueidentifier,
-@Version int,
-@Title varchar(255),
-@Content Text,
-@PlaceOfIntrest varchar(255),
-@TripMemoryID int output
-)
-
-As
-Begin
-
-	SET NOCOUNT ON
-
-	DECLARE @ParentTripMemoryID int, @currentDateTime datetime = SYSDATETIME()
-
-	INSERT INTO TripMemory (TransactionId,PersonGuid,Title,Content,PlaceOfIntrest,ModifiedOn,Version,Status,isDeleted)
-		values (@TransactionId,@PersonGuid,@Title,@Content,@PlaceOfIntrest,@currentDateTime,@Version,0,0)
-	select @ParentTripMemoryID = SCOPE_IDENTITY();
-
-	INSERT INTO TripMemory (ParentTripMemoryID,TransactionId,PersonGuid,Title,Content,PlaceOfIntrest,ModifiedOn,Version,Status,isDeleted)
-		values (@ParentTripMemoryID,@TransactionId,@PersonGuid,@Title,@Content,@PlaceOfIntrest,@currentDateTime,@Version,0,0)
-	select @TripMemoryID = SCOPE_IDENTITY();
-
-End
-GO
-
-
-using AirConfirmationApi;
-using AirConfirmationApi.BussinessObjects;
-using AirConfirmationApi.DatabaseAccess;
-using AirConfirmationApi.HealthCheck;
-using AirConfirmationApi.Logger;
-using AirConfirmationApi.Services.Airport;
-using AirConfirmationApi.Services.Ancillary;
-using AirConfirmationApi.Services.BookingData;
-using AirConfirmationApi.Services.Bundle;
-using AirConfirmationApi.Services.Cockpit;
-using AirConfirmationApi.Services.Context;
-using AirConfirmationApi.Services.GST;
-using AirConfirmationApi.Services.Loyalty;
-using AirConfirmationApi.Services.MealLounge;
-using AirConfirmationApi.Services.PassNFly;
-using AirConfirmationApi.Services.TerminalInfo;
-using Microsoft.AspNetCore.Diagnostics.HealthChecks;
-using Microsoft.Extensions.Diagnostics.HealthChecks;
-using Microsoft.OpenApi.Models;
-using NLog;
-using NLog.Web;
-using System.Net.Http.Headers;
-using System.Text.Json.Serialization;
-
-var logger = LogManager.Setup().LoadConfigurationFromAppSettings().GetCurrentClassLogger();
-logger.Debug("init main");
-
-try
-{
-    var builder = WebApplication.CreateBuilder(args);
-
-    var env = Environment.GetEnvironmentVariable("ASPNETCORE_ENVIRONMENT");
-    var nlogPath = env == "Production" ? "/nlog.config" : $"/nlog.{env}.config";
-    LogManager.LoadConfiguration(string.Concat(Directory.GetCurrentDirectory(), nlogPath));
-    builder.Logging.ClearProviders().AddConsole();
-    builder.Logging.SetMinimumLevel(Microsoft.Extensions.Logging.LogLevel.Trace);
-    builder.Host.UseNLog();
-    Log.SetLogger(logger);
-
-    // Add services to the container.
-    var config = builder.Configuration;
-    config.AddJsonFile("appsettings.json").AddJsonFile($"appsettings.{env}.json", optional: true);
-    var connectionStrings = config.GetSection("ConnectionStrings").Get<ConnectionStrings>();
-    var loyaltySettings = config.GetSection("LoyaltySettings").Get<LoyaltySettings>();
-    var bundleSettings = config.GetSection("BundleApiSettings").Get<BundleDetailsRequest>();
-    var commonServiceUrl = config.GetSection("CommonServiceUrl").Get<string>();
-    var commonAncillarySettings = config.GetSection("CommonAncillarySettings").Get<CommonAncillaryDetails>();
-    var gstSettings = config.GetSection("GSTSettings").Get<GstDetails>();
-    var passNFlySettings = config.GetSection("PassNFlySettings").Get<PassNFlySettings>();
-    var ccdBookingDataApi = config.GetSection("CcdBookingDataApi").Get<CcdBookingDataRequest>();
-    var cockpitSettingsUrl = config["CockpitSettingsUrl"];
-    var portalIds = config.GetSection("Portals").Get<List<int>>();
-
-    builder.Services.AddAutoMapper(typeof(AutoMapperProfile).Assembly);
-    builder.Services.AddControllers().AddJsonOptions(x =>
-    {
-        // serialize enums as strings in api responses (e.g. Role)
-        x.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
-    });
-
-    // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
-    builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddApplicationInsightsTelemetry();
-    builder.Services.AddSwaggerGen();
-    builder.Services.AddSingleton<IDatabaseRepository>(x => new DatabaseRepository(connectionStrings.ConnectionStringReadDatabase,
-        connectionStrings.ConnectionStringAlternateLogDatabase, connectionStrings.ConnectionStringLogDatabase, connectionStrings.ConnectionStringBackOffice, connectionStrings.ConnectionStringReportDatabase));
-    builder.Services.AddSingleton<ICockpitService>(x => new CockpitService(cockpitSettingsUrl, portalIds));
-    builder.Services.AddSingleton<ILoyaltyService>(x => new LoyaltyService(loyaltySettings));
-    builder.Services.AddSingleton<IAirlineService>(x => new AirlineService(commonServiceUrl ?? ""));
-    builder.Services.AddSingleton<IAirportService>(x => new AirportService(commonServiceUrl ?? ""));
-    builder.Services.AddSingleton<IPassNFlyService>(x => new PassNFlyService(passNFlySettings ?? new PassNFlySettings()));
-    builder.Services.AddSingleton<IBundleService>(x => new BundleService(bundleSettings));
-    builder.Services.AddSingleton<ICommonAncillaryService>(x => new CommonAncillaryService(commonAncillarySettings ?? new CommonAncillaryDetails()));
-    builder.Services.AddSingleton<IMealLoungeService>(x => new MealLoungeService(commonAncillarySettings ?? new CommonAncillaryDetails()));
-    builder.Services.AddSingleton<IGstService>(x => new GstSevice(gstSettings));
-    builder.Services.AddHttpClient<IBookingDataService, BookingDataService>((client) =>
-    {
-        client.BaseAddress = new Uri(ccdBookingDataApi.URL);
-        client.Timeout = TimeSpan.FromMilliseconds(ccdBookingDataApi.TimeOut);
-        client.DefaultRequestHeaders.Accept.Clear();
-        client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
-    });
-    builder.Services.AddSingleton<ITerminalInfoService>(x => new TerminalInfoService());
-    builder.Services.AddScoped<IAirContext>(x => new AirContext());
-
-    //health check
-    builder.Services.AddHealthChecks().AddCheck<CockpitApiHealthCheck>("CockpitApiHealth");
-
-    var app = builder.Build();
-    app.Logger.LogInformation("Host created");
-    await app.Services.GetRequiredService<ICockpitService>().LoadCockpitSettingsAsync();
-    await app.Services.GetRequiredService<IAirportService>().LoadAirportData();
-    await app.Services.GetRequiredService<IAirlineService>().LoadAirlineDetails();
-    // Configure the HTTP request pipeline.
-    app.Use(async (context, next) =>
-    {
-        var airContext = context.RequestServices.GetService<IAirContext>();
-        airContext.Init(context.Request);
-        airContext.SetDependencies(context.RequestServices, context.Request);
-        await next();
-    });
-    // No Cache Headers
-    app.Use(async (context, next) =>
-    {
-        context.Response.Headers.Add("Cache-Control", "private, no-cache, no-store, must-revalidate");
-        context.Response.Headers.Add("Expires", "-1");
-        context.Response.Headers.Add("Pragma", "no-cache");
-        await next();
-    });
-    if (app.Environment.IsDevelopment())
-    {
-        app.UseDeveloperExceptionPage();
-		if (Environment.UserDomainName == "CORP") //support in local machine
-		{
-			app.UseSwagger();
-			app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "AirConfirmationApi v1"));
-		}
-		else
-		{
-			app.UseSwagger(options =>
-			{
-				options.PreSerializeFilters.Add((swagger, httpReq) =>
-				{
-					swagger.Servers = new List<OpenApiServer>() { new OpenApiServer() { Url = $"https://{httpReq.Host}/airconfirmationapi" } };
-				});
-			});
-			app.UseSwaggerUI(c => c.SwaggerEndpoint("/airconfirmationapi/swagger/v1/swagger.json", "AirConfirmationApi v1"));
-		}
-        app.UseCors(builder => builder
-            .AllowAnyOrigin()
-            .AllowAnyMethod()
-            .AllowAnyHeader());
-    }
-    else
-    {
-        app.UseHttpsRedirection();
-    }
-    app.UseRouting();
-    app.UseAuthorization();
-    app.MapControllers();
-    app.UseHealthChecks("/healthcheck", new HealthCheckOptions()
-    {
-        Predicate = _ => true,
-        AllowCachingResponses = false
-    });
-    app.UseHealthChecks("/ping", new HealthCheckOptions()
-    {
-        Predicate = _ => false,
-    });
-    app.Run();
-}
-catch (Exception exception)
-{
-    //NLog: catch setup errors
-    logger.Error(exception, "Stopped program because of exception");
-    throw;
-}
-finally
-{
-    // Ensure to flush and stop internal timers/threads before application-exit (Avoid segmentation fault on Linux)
-    LogManager.Shutdown();
-}
-
-
-index.js:10 Uncaught (in promise) TypeError: (0 , _api__WEBPACK_IMPORTED_MODULE_0__.tripmemoryApi) is not a function
-    at _callee$ (index.js:10:41)
-    at tryCatch (index.js:2:1)
-    at Generator.<anonymous> (index.js:2:1)
-    at Generator.next (index.js:2:1)
-    at asyncGeneratorStep (index.js:2:1)
-    at _next (index.js:2:1)
-    at index.js:2:1
-    at new Promise (<anonymous>)
-    at index.js:2:1
-    at index.js:27:2
-_callee$	@	index.js:10
-tryCatch	@	index.js:2
-(anonymous)	@	index.js:2
-(anonymous)	@	index.js:2
-asyncGeneratorStep	@	index.js:2
-_next	@	index.js:2
-(anonymous)	@	index.js:2
-(anonymous)	@	index.js:2
-(anonymous)	@	index.js:27
-(anonymous)	@	index.js:8
-boundActionCreators.<computed>	@	bindActionCreators.js:8
-componentDidMount	@	tripMemory.desktop.js:20
-commitLifeCycles	@	react-dom.development.js:20663
-commitLayoutEffects	@	react-dom.development.js:23426
-callCallback	@	react-dom.development.js:3945
-invokeGuardedCallbackDev	@	react-dom.development.js:3994
-invokeGuardedCallback	@	react-dom.development.js:4056
-commitRootImpl	@	react-dom.development.js:23151
-unstable_runWithPriority	@	scheduler.development.js:468
-runWithPriority$1	@	react-dom.development.js:11276
-commitRoot	@	react-dom.development.js:22990
-performSyncWorkOnRoot	@	react-dom.development.js:22329
-(anonymous)	@	react-dom.development.js:11327
-unstable_runWithPriority	@	scheduler.development.js:468
-runWithPriority$1	@	react-dom.development.js:11276
-flushSyncCallbackQueueImpl	@	react-dom.development.js:11322
-flushSyncCallbackQueue	@	react-dom.development.js:11309
-scheduleUpdateOnFiber	@	react-dom.development.js:21893
-enqueueSetState	@	react-dom.development.js:12467
-push../node_modules/react/cjs/react.development.js.Component.setState	@	react.development.js:365
-LoadableComponent._setStateWithMountCheck	@	index.js:275
-(anonymous)	@	index.js:331
-step	@	index.js:76
-(anonymous)	@	index.js:57
-fulfilled	@	index.js:48
-Promise.then (async)		
-step	@	index.js:50
-(anonymous)	@	index.js:51
-__webpack_modules__../node_modules/@react-loadable/revised/index.js.__awaiter	@	index.js:47
-LoadableComponent._loadModule	@	index.js:278
-LoadableComponent	@	index.js:242
-constructClassInstance	@	react-dom.development.js:12716
-updateClassComponent	@	react-dom.development.js:17425
-beginWork	@	react-dom.development.js:19073
-beginWork$1	@	react-dom.development.js:23940
-performUnitOfWork	@	react-dom.development.js:22779
-workLoopSync	@	react-dom.development.js:22707
-renderRootSync	@	react-dom.development.js:22670
-performSyncWorkOnRoot	@	react-dom.development.js:22293
-(anonymous)	@	react-dom.development.js:11327
-unstable_runWithPriority	@	scheduler.development.js:468
-runWithPriority$1	@	react-dom.development.js:11276
-flushSyncCallbackQueueImpl	@	react-dom.development.js:11322
-flushSyncCallbackQueue	@	react-dom.development.js:11309
-scheduleUpdateOnFiber	@	react-dom.development.js:21893
-enqueueSetState	@	react-dom.development.js:12467
-push../node_modules/react/cjs/react.development.js.Component.setState	@	react.development.js:365
-LoadableComponent._setStateWithMountCheck	@	index.js:275
-(anonymous)	@	index.js:331
-step	@	index.js:76
-(anonymous)	@	index.js:57
-fulfilled	@	index.js:48
-Promise.then (async)		
-step	@	index.js:50
-(anonymous)	@	index.js:51
-__webpack_modules__../node_modules/@react-loadable/revised/index.js.__awaiter	@	index.js:47
-LoadableComponent._loadModule	@	index.js:278
-LoadableComponent	@	index.js:242
-constructClassInstance	@	react-dom.development.js:12716
-updateClassComponent	@	react-dom.development.js:17425
-beginWork	@	react-dom.development.js:19073
-beginWork$1	@	react-dom.development.js:23940
-performUnitOfWork	@	react-dom.development.js:22779
-workLoopSync	@	react-dom.development.js:22707
-renderRootSync	@	react-dom.development.js:22670
-performSyncWorkOnRoot	@	react-dom.development.js:22293
-scheduleUpdateOnFiber	@	react-dom.development.js:21881
-updateContainer	@	react-dom.development.js:25482
-(anonymous)	@	react-dom.development.js:26021
-unbatchedUpdates	@	react-dom.development.js:22431
-legacyRenderSubtreeIntoContainer	@	react-dom.development.js:26020
-hydrate	@	react-dom.development.js:26086
-(anonymous)	@	index.js:179
-Promise.then (async)		
-./src/shared/index.js	@	index.js:178
-__webpack_require__	@	bootstrap:21
-checkDeferredModulesImpl	@	jsonp chunk loading:571
-__webpack_require__.x	@	jsonp chunk loading:584
-(anonymous)	@	startup:3
-(anonymous)
-
-
-api:
-import axios from 'axios';
-import { responseInterCeptor, requestInterceptor, removeAjaxLoader } from './axiosInterceptor';
-export default (() => {
-    const userAgent = window.platform === 'native' ? { 'User-Agent': window.navigator.userAgent } : {};
-    const clientInfo = { 'portal': window.PORTAL_ID, 'platform': window.platform === 'native' ? window.device : window.platform };
-    const tripmemoryApi = axios.create({
-        baseURL: (window.platform === 'native' ? window.URL_PREFIX : '') + '/tripmemoryapi/api/tripmemory/',
-        headers: {
-            ...userAgent, ...clientInfo,
-            'Content-Type': 'application/json;charset=UTF-8'
-        },
-        timeout: 120000,
-        responseType: 'json'
-    });
-    if (tripmemoryApi.interceptors) {
-        tripmemoryApi.interceptors.request.use(function (config) {
-            requestInterceptor(config);
-            return config;
-        }, function (error) {
-            // Do something with request error    
-            removeAjaxLoader(error);
-            return Promise.reject(error);
-        });
-        tripmemoryApi.interceptors.response.use(function (res) {
-            responseInterCeptor(res);
-            return res;
-        }, function (error) {
-            removeAjaxLoader(error);
-            return Promise.reject(error);
-        });
-    }
-    return tripmemoryApi;
-});
-
-axios interseptor:
-import axios from 'axios';
-import { helpers, gtmSnippets } from '@common/react-lib/lib/utils';
-import history from 'customHistory';
-import { spinner } from 'utils/spinner';
-let loadAnimationCount = 0;
-const getAppversionAndRefresh = function () {
-    if (window.APP_VERSION) {
-        axios.get('/confirmationnext/getappversion')
-            .then(res => {
-                if (res && res.data && res.data.appVersion && window.APP_VERSION !== res.data.appVersion) {
-                    const currentversion = window.APP_VERSION.split('.').join("");
-                    const updatedVersion = res.data.appVersion.split('.').join("");
-                    if (parseInt(updatedVersion, 10) > parseInt(currentversion, 10))
-                        location.reload(true);
-                }
-            });
-    }
-};
-
-const handleSessionTimeOutEvent = (res, config) => {
-    if (window.platform === 'native') return;
-    //log to launchpad
-    if (window.Launchpad && window.Launchpad.logEvent)
-        window.Launchpad.logEvent("session_timeout", {
-            endTime: new Date(),
-            api: config.url,
-            server: res.MachineName,
-            location: window.location.pathname,
-            affiliateId: window.appSettings.affiliateId
-        });
-};
-
-export const removeAjaxLoader = (showLoader) => {
-    if (showLoader) {
-        loadAnimationCount--;
-    }
-    if (loadAnimationCount <= 0)
-        showHideAnimationLoader(false);
-};
-export const requestInterceptor = (config) => {
-    if (config.showLoader) {
-        loadAnimationCount++;
-        showHideAnimationLoader(true);
-    }
-    if (config.checkAppVer)
-        getAppversionAndRefresh();
-    return config;
-};
-export const responseInterCeptor = (response) => {
-    removeAjaxLoader(response.config.showLoader);
-    const res = response.data;
-    if (res && res.hasOwnProperty('IsSession') && !res.IsSession) {
-        handleSessionTimeOutEvent(res, response.config);
-        onSessionExpire();
-    }
-    return response;
-};
-
-const onSessionExpire = () => {
-    if (window.platform === 'native') {
-        return onNativeSessionExpire();
-    }
-    const listingDeeplink = helpers.getDataFromSessionStorage('listing_deeplink') || helpers.getDataFromLocalStorage('listing_deeplink');
-    const paymentDeeplink = helpers.getDataFromSessionStorage('payment_deeplink') || helpers.getDataFromLocalStorage('payment_deeplink');
-    //if listing_deeplink is there in localStorage
-    if ((window.location.pathname.indexOf('/review') >= 0 || window.location.pathname.indexOf('/pax') >= 0 || window.location.pathname.indexOf('/seatmap') >= 0 || window.location.pathname.indexOf('/book') >= 0 || window.location.pathname.indexOf('/payment') >= 0) && paymentDeeplink) {
-        gtmSnippets.TrackGACommonEvent('SessionTimeOut', 'Payment Page');
-        window.setTimeout(() => {
-            window.location.href = window.location.origin + window.URL_PREFIX + "/air/clienthandler?" + paymentDeeplink;
-        }, 300);
-    } else if (listingDeeplink) {
-        window.setTimeout(() => {
-            window.location.href = window.location.origin + window.URL_PREFIX + "/air/listing?" + listingDeeplink;
-        }, 300);
-    }
-    else {
-        window.location.href = window.location.origin + window.URL_PREFIX + '?SESSIONTIMEOUT=sessiontimeout';
-    }
-};
-
-const onNativeSessionExpire = () => {
-    history.push({ pathname: '/' });
-};
-
-export const showHideAnimationLoader = (show) => {
-    if (window.document) {
-        const loadAnimation = document.querySelector('.page-loader');
-        if (loadAnimation) {
-            if (show)
-                loadAnimation.classList.add('ajax-loading');
-            else
-                loadAnimation.classList.remove('ajax-loading');
-        }
-    }
-    else if (spinner) {
-        spinner.toggleAnimation(show);
-    }
-};
-export default { responseInterCeptor, requestInterceptor, removeAjaxLoader };
-
-action:
-import { tripmemoryApi } from '../../api';
-import { SET_TRIPMEMORY_DETAILS } from '../types';
-
-export const getTripMemoryDetails = (transactionGuid, profileGuid) => async (dispatch) => {
-    const params = {
-        TransactionGuid: transactionGuid,
-        ProfileGuid: profileGuid
-    };
-    
-    const response = await tripmemoryApi().get('get', params);
-    if (response && response.data) {
-        const tripmemoryData = response.data;
-        const tripmemoryDetails = {
-            transactionId: tripmemoryData.transactionId,
-            tripmemoryId: tripmemoryData.TripmemoryId,
-            version: tripmemoryData.version,
-            title: tripmemoryData.title,
-            content: tripmemoryData.content,
-            tripDetail: tripmemoryData.tripDetail,
-            status: tripmemoryData.status
-        };
-        dispatch({ type: SET_TRIPMEMORY_DETAILS, payload: tripmemoryDetails });
-    }
-    else {
-        dispatch({ type: SET_TRIPMEMORY_DETAILS, payload: null });
-    }
-};
-
-import React, { Component} from "react";
-import { connect } from 'react-redux';
-import 'styles/scss/components/c-confirmation.scss';
-import 'styles/scss/components/c-tripmemory.scss';
-import { getTripMemoryDetails } from 'actions/tripMemory';
-
-
-
-class TripMemory extends Component {
+class GoogleAds extends Component {
     constructor(props) {
         super(props);
         this.state = {
-            showShearPopUp:false,
-            
+            loading: false
         };
+        this.adSlot = null;
+        this.refreshTimer = null;
+        this.refreshBasedOnTime = false;
+        this.refreshBasedOnViewability = false;
+        this.listenersAdded = false;
+        this._isMounted = false;
     }
 
     componentDidMount() {
-        debugger;
-        this.props.getTripMemoryDetails("03F35FBD-8CA9-4D92-9F35-A64032971B8C", "FB192128-9619-433E-AF4D-815BCB7BDFC9");
+        this._isMounted = true;
+        adLogger.log("GPT:Mount Refresh Time for:", this.props.adUnitPath, this.props.refreshTime);
+        this.defineAdSlots();
     }
-    componentDidUpdate() {  
+
+    componentDidUpdate(prevProps) {
+        if (this.adSlot && prevProps.userDetails !== this.props.userDetails) {
+            const targeting = getTargeting(this.props.criteria, this.props.placement, this.props.userDetails);
+
+            Object.keys(targeting).forEach((key) => {
+                this.adSlot.setTargeting(key, targeting[key]);
+            });
+
+            window.googletag.pubads().refresh([this.adSlot], { changeCorrelator: false });
+        }
     }
-    openSharePopUp=()=>{
-        const showPopUp=this.state.showShearPopUp;
-        this.setState({showShearPopUp:!showPopUp});
+
+    componentWillUnmount() {
+        this._isMounted = false;
+        adLogger.log("GPT: Unmounting", this.props.adUnitPath);
+
+        if(this.listenersAdded) {
+            // Remove listeners
+            window.removeEventListener("gpt-ad-requested", this.handleSlotRequested);
+            window.removeEventListener("gpt-ad-rendered", this.handleSlotRenderEnded);
+            window.removeEventListener("gpt-ad-impression-viewable", this.setViewed);
+            window.removeEventListener("gpt-ad-visibility-changed", this.handleSlotVisibilityChange);
+            this.listenersAdded = false;
+        }
+        if (this.adSlot && window.googletag?.destroySlots) {
+            window.googletag.destroySlots([this.adSlot]);
+            this.adSlot = null;
+        }
+        if (this.refreshTimer) {
+            clearTimeout(this.refreshTimer);
+            this.refreshTimer = null;
+        } 
     }
-   
+
+    defineAdSlots() {
+        try {
+            window.googletag = window.googletag || { cmd: [] };
+            window.googletag.cmd.push(() => {
+                if (!this._isMounted) return;
+
+                const pubads = window.googletag.pubads();
+                // Define slot
+                this.adSlot = window.googletag.defineSlot(this.props.adUnitPath, this.props.slotSize, this.props.id).addService(pubads);
+                if (this.adSlot) {
+                    // Set targeting
+                    const targeting = getTargeting(this.props.criteria, this.props.placement, this.props.userDetails);
+                    Object.keys(targeting).forEach((key) => {
+                        this.adSlot.setTargeting(key, targeting[key]);
+                    });
+                        
+                    this.initGpt(pubads);
+
+                    // Add listeners
+                    this.attachListeners();
+
+                    window.googletag.display(this.props.id);
+
+                    saveInSessionStorage("_adRefreshTime_", new Date());
+                }
+            });
+        } catch {}
+    };
+
+    initGpt = (pubads) => {
+        try {
+            if (!window.gptAdsServicesEnabled) {
+                window.googletag.pubads().enableSingleRequest();
+                window.googletag.enableServices();
+                window.gptAdsServicesEnabled = true;
+            }
+            if (!window.gptAdsEnableLazyLoading && window.cockpitSetting.ApplicationSettings.EnableLazyLoadingForAds) {
+                // Enable lazy loading
+                pubads.enableLazyLoad({
+                    fetchMarginPercent: 0,  // Fetch only when entering viewport
+                    renderMarginPercent: 0, // Render only when actually visible
+                    mobileScaling: 1.0        // Adjusts margins for mobile
+                });
+                window.gptAdsEnableLazyLoading = true;
+            }
+            this.globalGptAdsListeners(pubads);
+        } catch {}
+    };
+
+    globalGptAdsListeners = (pubads) => {
+        try {
+            if(window.globalGptAdsListenersAdded) return;
+            pubads.addEventListener("slotRequested", (event) => {
+                window.dispatchEvent(new CustomEvent("gpt-ad-requested", { detail: event }));
+            });
+            pubads.addEventListener("slotRenderEnded", (event) => {
+                window.dispatchEvent(new CustomEvent("gpt-ad-rendered", { detail: event }));
+            });
+            pubads.addEventListener("impressionViewable", (event) => {
+                window.dispatchEvent(new CustomEvent("gpt-ad-impression-viewable", { detail: event }));
+            });
+            pubads.addEventListener("slotVisibilityChanged", (event) => {
+                window.dispatchEvent(new CustomEvent("gpt-ad-visibility-changed", { detail: event }));
+            });
+            window.globalGptAdsListenersAdded = true;
+        } catch {}
+    };
+
+    attachListeners = () => {
+        if (this.listenersAdded) return;
+
+        window.addEventListener("gpt-ad-requested", this.handleSlotRequested);
+        window.addEventListener("gpt-ad-rendered", this.handleSlotRenderEnded);
+        window.addEventListener("gpt-ad-impression-viewable", this.setViewed);
+        window.addEventListener("gpt-ad-visibility-changed", this.handleSlotVisibilityChange);
+        this.listenersAdded = true;
+    };
+
+    setViewed = (gptEvent) => {
+        try {
+            const { adUnitPath, refreshTime, placement } = this.props;
+            const slot = gptEvent.detail.slot;
+            console.log('################################# evnet', gptEvent);
+            adLogger.log("GPT: setViewed called", adUnitPath, slot.getSlotElementId());
+
+            if (slot.getAdUnitPath() === adUnitPath) {
+                adLogger.log("GPT: AdViewed setViewed", adUnitPath, refreshTime);
+                if (refreshTime && refreshTime > 0) {
+                    this.refreshTimer = setTimeout(() => {
+                        this.refreshBasedOnTime = true;
+                        this.triggerRefresh();
+                        this.refreshTimer = null;
+                    }, refreshTime);
+                }
+                if (!window.inlinead_displayed && placement === "Inline-listing-contract") {
+                    window.inlinead_displayed = true;
+                    logEvent({...fmgAds, Label: "inline_ad_displayed"});
+                }
+            }
+        } catch {}
+    };
+
+    triggerRefresh = () => {
+        try {
+            const { adUnitPath } = this.props;
+            adLogger.log("GPT: Refresh check", "time:", this.refreshBasedOnTime, "viewability:", this.refreshBasedOnViewability, adUnitPath);
+
+            if (this.refreshBasedOnTime && this.refreshBasedOnViewability && this.adSlot && this._isMounted) {
+                adLogger.log("_adRefreshTime_" + JSON.stringify(getDataFromSessionStorage("_adRefreshTime_")));
+                adLogger.log("GPT: refreshing now:", adUnitPath, new Date());
+                this.refreshBasedOnTime = false;
+                this.refreshBasedOnViewability = false;
+                window.googletag.pubads().refresh([this.adSlot], { changeCorrelator: false });
+                saveInSessionStorage("_adRefreshTime_", new Date());
+            }
+        } catch {}
+    };
+
+    handleSlotVisibilityChange = (gptEvent) => {
+        try {
+            const { adUnitPath } = this.props;
+            const slot = gptEvent.detail.slot;
+            const inViewPercentage = gptEvent.detail.inViewPercentage || 0;
+            adLogger.log("GPT: handleAdRefresh called due to SLOT_VISIBILITY_CHANGED", adUnitPath, inViewPercentage);
+
+            if (slot.getAdUnitPath() === adUnitPath) {
+                const perc = GoogleAdsConfig.inViewPerc || 50;
+                const shouldRefresh = window.cockpitSetting.ApplicationSettings.EnableRefreshBasedOnViewability ? inViewPercentage >= perc : true;
+                if (shouldRefresh) {
+                    this.refreshBasedOnViewability = true;
+                    this.triggerRefresh();
+                } else {
+                    adLogger.log("GPT: setting refreshBasedOnViewability to false", adUnitPath);
+                    this.refreshBasedOnViewability = false;
+                }
+            }
+        } catch {}
+    };
+
+    handleSlotRequested = (gptEvent) => {
+        try {
+            // Detect if this slot has previously rendered
+            const hasRenderedBefore = !!gptEvent.detail.slot.getResponseInformation();
+            if (hasRenderedBefore && gptEvent.detail.slot.getSlotElementId() === this.props.id) {
+                // Add dynamic inline styling
+                this.setState({ loading: true });
+            }
+        } catch {}
+    };
+
+    handleSlotRenderEnded = (gptEvent) => {
+        try {
+            if (gptEvent.detail.slot.getSlotElementId() === this.props.id) {
+                if (this.refreshTimer) {
+                    clearTimeout(this.refreshTimer);
+                    this.refreshTimer = null;
+                    this.refreshBasedOnTime = false;
+                    this.refreshBasedOnViewability = false;
+                }
+                // Remove dynamic inline styling
+                this.setState({ loading: false });
+            }
+        } catch {}
+    };
+
     render() {
+        const { id, slotSize } = this.props;
+        let style = {};
+
+        if (this.state.loading && this.adSlot && Array.isArray(slotSize) && slotSize.length === 2) {
+            // Dynamic inline styling
+            const [width, height] = slotSize;
+            style = { width: `${width}px`, height: `${height}px` };
+        }
         return (
-            <article className="tripmemory px-5 pt-5 pb-7 mx-auto is--white-background ">
-                <div className="tripmemory__header mb-5">
-                    <div className="tripmemory__header__details d-flex p-3 is--white-background text-center align-items-center ">
-                        <div className="tripmemory__header__details--content d-flex text-center align-items-center justify-content-between">
-                              <div className="madetrip text-xs ">Made with</div>
-                              <i className="tripimg"></i>
-                              <div className="tripmemories text-base font-weight-bold">Trip memories</div>
-                              <div className="beta text-sm">beta</div>
-                        </div>
-                        <div className="tripmemory__header__details--warning madetrip text-xs pl-2">
-                            AI output can be misleading or wrong
-                        </div>
-                    </div>    
-                </div>
-                <div className="tripmemory__userdetails p-4 d-flex text-center align-items-center justify-content-between is--white-background mb-5">
-                        <div className="tripmemory__userdetails--userinfo d-flex text-center align-items-center justify-content-between">
-                              <div className="username pr-2 text-base font-weight-bold">Mia Rodriguez</div>
-                              <div>
-                              <div className="tripdetails pr-2 text-md d-inline-block">Trip to San Diego, USA</div>
-                              <div className="triptime pl-1 text-md d-inline-block">May 3 - May 12, 2024</div>
-                              </div>
-                              
-                        </div>
-                        <div className="tripmemory__userdetails--shearbtn d-flex position-relative" onClick={()=>this.openSharePopUp()}>
-                            <i className="tripshareimg"></i>
-                            <span className="text-lg font-weight-bold is--white-color">Share</span>
-                            {this.state.showShearPopUp &&<div className="position-absolute is--white-background sheardpopup d-flex p-2 pr-3 ">
-                                <div className="d-flex"><i className="tripsharewithx mr-2"></i>Share on X</div>
-                                <div className="d-flex"><i className="tripsharewithfb mr-2"></i>Share on Facebook</div>
-                            </div>}
-                        </div>
-                    </div>
-                    <div className="tripmemory__content ">
-                       <div className="tripmemory__content--header font-weight-bold mb-4">
-                             A Family Adventure: Exploring the Magic of Miami
-                       </div>
-                       <div className="tripmemory__content--details text-xxl">
-                        <div className="font-weight-bold mb-1">Hey there, fellow travelers! </div>
-                        <div>
-                          Come along as I take you through the whirlwind adventure my family and I recently embarked on in the vibrant city of Miami. From bustling streets to tranquil beaches, our trip was nothing short of magical!
-                          After a brief layover in Atlanta, we touched down in Miami, greeted by the warm embrace of the Florida sunshine. Our group of five, including two adults, one senior, one child, and an adorable infant, wasted no time diving headfirst into the city's endless adventures.</div>
-                       </div>
-                    </div>
-            </article>
-            )
+            // a div placeholder for the GPT slot
+            <div id={id} style={style} />
+        );
     }
 }
+
+GoogleAds.propTypes = {
+    id: PropTypes.string.isRequired,
+    adUnitPath: PropTypes.string.isRequired,
+    slotSize: PropTypes.oneOfType([PropTypes.array, PropTypes.string]),
+};
+
 const mapStateToProps = (state) => ({
-    tripmemoryDetails: state.tripmemoryDetails.TripMemoryDetails
+    userDetails: state.userDetails,
 });
-export const mapActionToProps = { getTripMemoryDetails };
-export { TripMemory };
-export default connect(
-    mapStateToProps,
-    mapActionToProps
-)(TripMemory);
 
-
-PS C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI> dotnet run start:dev
-The launch profile "(Default)" could not be applied.
-A usable launch profile could not be located.
-{ "Logger": "Program", "Hostname": "GGTPML0342968", "LogGenerationTime": "2024-05-30T12:56:03.777", "Level": "Error", "message": "Stopped program because of exception", "ProcessID": "29488", "ThreadID": "1", "Exception": "System.IO.FileNotFoundException\tFailed to load NLog LoggingConfiguration. Searched the following locations:->- C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI/nlog..config->\tNLog.LogFactory LoadConfiguration(System.String, Boolean)\t   at NLog.LogFactory.LoadConfiguration(String configFile, Boolean optional)->   at NLog.LogFactory.LoadConfiguration(String configFile)->   at NLog.LogManager.LoadConfiguration(String configFile)->   at Program.<Main>$(String[] args) in C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI\\Program.cs:line 39", "Exception_Type": "System.IO.FileNotFoundException", "StackTrace": "   at NLog.LogFactory.LoadConfiguration(String configFiogram.<Main>$(String[] args) in C:\\Digital\\digital-tripmemoryapi\\TripmemoryAPI.WebAPI\\Program.cs:line 39", "Environment": "production", "uid": "0", "portal": "0", "platform": "0", "transactionId": "0", "transactionGuid": "0", "tenantId": "0", "contractlocatorkey": "0", "xmlid": "0", "application": "digital-tripmemoryapi", "loggroup": "digital" }
-Unhandled exception. System.IO.FileNotFoundException: Failed to load NLog LoggingConfiguration. Searched the following locations:
-- C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI/nlog..config
-
-File name: 'C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI/nlog..config'
-   at NLog.LogFactory.LoadConfiguration(String configFile, Boolean optional)
-   at NLog.LogManager.LoadConfiguration(String configFile)
-   at Program.<Main>$(String[] args) in C:\Digital\digital-tripmemoryapi\TripmemoryAPI.WebAPI\Program.cs:line 39
-   at Program.<Main>(String[] args)
+export { GoogleAds, mapStateToProps };
+export default connect(mapStateToProps)(GoogleAds);
