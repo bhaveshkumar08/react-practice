@@ -1,1 +1,106 @@
-import React, { Component } from "react"; import PropTypes from "prop-types"; import { GoogleAdsConfig, getTargeting, adLogger, registerSlotListners, unregisterSlotListners } from "utils/GoogleAdsHelper"; import { saveInSessionStorage, getDataFromSessionStorage } from "utils/storageHelper"; import { logEvent } from "logger"; import { fmgAds } from "utils/eventNames"; import { connect } from "react-redux"; class GoogleAds extends Component { constructor(props) { super(props); this.state = { loading: false }; this.adSlot = null; this.refreshTimer = null; this.refreshBasedOnTime = false; this.refreshBasedOnViewability = false; this.listenersAdded = false; this._isMounted = false; } componentDidMount() { this._isMounted = true; adLogger.log("GPT:Mount Refresh Time for:", this.props.adUnitPath, this.props.refreshTime); this.defineAdSlots(); } componentDidUpdate(prevProps) { if (this.adSlot && prevProps.userDetails !== this.props.userDetails) { const targeting = getTargeting(this.props.criteria, this.props.placement, this.props.userDetails); Object.keys(targeting).forEach((key) => { this.adSlot.setTargeting(key, targeting[key]); }); window.googletag.pubads().refresh([this.adSlot], { changeCorrelator: false }); } } componentWillUnmount() { this._isMounted = false; adLogger.log("GPT: Unmounting", this.props.adUnitPath); // Remove listeners if(this.listenersAdded) { unregisterSlotListners(this.props.id); this.listenersAdded = false; } // Destroy slot if (this.adSlot && window.googletag?.destroySlots) { window.googletag.destroySlots([this.adSlot]); this.adSlot = null; } // Clear refresh timer if (this.refreshTimer) { clearTimeout(this.refreshTimer); this.refreshTimer = null; } } defineAdSlots() { try { window.googletag = window.googletag || { cmd: [] }; window.googletag.cmd.push(() => { if (!this._isMounted) return; const pubads = window.googletag.pubads(); // Define slot this.adSlot = window.googletag.defineSlot(this.props.adUnitPath, this.props.slotSize, this.props.id).addService(pubads); if (this.adSlot) { // Set targeting const targeting = getTargeting(this.props.criteria, this.props.placement, this.props.userDetails); Object.keys(targeting).forEach((key) => { this.adSlot.setTargeting(key, targeting[key]); }); // Add listeners this.attachListeners(); // Display ad window.googletag.display(this.props.id); saveInSessionStorage("_adRefreshTime_", new Date()); } }); } catch {} }; attachListeners = () => { if (this.listenersAdded) return; registerSlotListners(this.props.id, { onRequested: this.handleSlotRequested, onRenderEnded: this.handleSlotRenderEnded, onViewableImpression: this.setViewed, onVisibilityChanged: this.handleSlotVisibilityChange }); this.listenersAdded = true; }; setViewed = (gptEvent) => { try { const { adUnitPath, refreshTime, placement } = this.props; const slot = gptEvent.slot; adLogger.log("GPT: setViewed called", adUnitPath, slot.getSlotElementId()); if (slot.getAdUnitPath() === adUnitPath) { adLogger.log("GPT: AdViewed setViewed", adUnitPath, refreshTime); if (refreshTime && refreshTime > 0) { this.refreshTimer = setTimeout(() => { this.refreshBasedOnTime = true; this.triggerRefresh(); this.refreshTimer = null; }, refreshTime); } if (!window.inlinead_displayed && placement === "Inline-listing-contract") { window.inlinead_displayed = true; logEvent({...fmgAds, Label: "inline_ad_displayed"}); } } } catch {} }; triggerRefresh = () => { try { const { adUnitPath } = this.props; adLogger.log("GPT: Refresh check", "time:", this.refreshBasedOnTime, "viewability:", this.refreshBasedOnViewability, adUnitPath); if (this.refreshBasedOnTime && this.refreshBasedOnViewability && this.adSlot && this._isMounted) { adLogger.log("_adRefreshTime_" + JSON.stringify(getDataFromSessionStorage("_adRefreshTime_"))); adLogger.log("GPT: refreshing now:", adUnitPath, new Date()); this.refreshBasedOnTime = false; this.refreshBasedOnViewability = false; window.googletag.pubads().refresh([this.adSlot], { changeCorrelator: false }); saveInSessionStorage("_adRefreshTime_", new Date()); } } catch {} }; handleSlotVisibilityChange = (gptEvent) => { try { const { adUnitPath } = this.props; const slot = gptEvent.slot; const inViewPercentage = gptEvent.inViewPercentage || 0; adLogger.log("GPT: handleAdRefresh called due to SLOT_VISIBILITY_CHANGED", adUnitPath, inViewPercentage); if (slot.getAdUnitPath() === adUnitPath) { const perc = GoogleAdsConfig.inViewPerc || 50; const shouldRefresh = window.cockpitSetting.ApplicationSettings.EnableRefreshBasedOnViewability ? inViewPercentage >= perc : true; if (shouldRefresh) { this.refreshBasedOnViewability = true; this.triggerRefresh(); } else { adLogger.log("GPT: setting refreshBasedOnViewability to false", adUnitPath); this.refreshBasedOnViewability = false; } } } catch {} }; handleSlotRequested = (gptEvent) => { try { // Detect if this slot has previously rendered const hasRenderedBefore = !!gptEvent.slot.getResponseInformation(); if (hasRenderedBefore && gptEvent.slot.getSlotElementId() === this.props.id) { // Add dynamic inline styling this.setState({ loading: true }); } } catch {} }; handleSlotRenderEnded = (gptEvent) => { try { if (gptEvent.slot.getSlotElementId() === this.props.id) { if (this.refreshTimer) { clearTimeout(this.refreshTimer); this.refreshTimer = null; this.refreshBasedOnTime = false; this.refreshBasedOnViewability = false; } // Remove dynamic inline styling this.setState({ loading: false }); } } catch {} }; render() { const { id, slotSize } = this.props; let style = {}; if (this.state.loading && this.adSlot && Array.isArray(slotSize) && slotSize.length === 2) { // Dynamic inline styling const [width, height] = slotSize; style = { width: ${width}px, height: ${height}px }; } return ( // a div placeholder for the GPT slot <div id={id} style={style} /> ); } } GoogleAds.propTypes = { id: PropTypes.string.isRequired, adUnitPath: PropTypes.string.isRequired, slotSize: PropTypes.oneOfType([PropTypes.array, PropTypes.string]), }; const mapStateToProps = (state) => ({ userDetails: state.userDetails, }); export { GoogleAds, mapStateToProps }; export default connect(mapStateToProps)(GoogleAds); googleadshelper.js const handlers = new Map(); export const initGPT = () => { try { window.googletag = window.googletag || { cmd: [] }; window.googletag.cmd.push(() => { const pubads = window.googletag.pubads(); //Enable GPT services only once if (!window.gptAdsServicesEnabled) { pubads.enableSingleRequest(); window.googletag.enableServices(); window.gptAdsServicesEnabled = true; } // Enable lazy loading if (window.cockpitSetting.ApplicationSettings.EnableLazyLoadingForAds) { pubads.enableLazyLoad({ fetchMarginPercent: 0, // Fetch only when entering viewport renderMarginPercent: 0, // Render only when actually visible mobileScaling: 1.0 // Adjusts margins for mobile }); } // Global event listeners for GPT events pubads.addEventListener('slotRequested', (event) => { const slotId = event.slot.getSlotElementId(); const slotHandlers = handlers.get(slotId); slotHandlers?.onRequested?.(event); }); pubads.addEventListener('slotRenderEnded', (event) => { const slotId = event.slot.getSlotElementId(); const slotHandlers = handlers.get(slotId); slotHandlers?.onRenderEnded?.(event); }); pubads.addEventListener('impressionViewable', (event) => { const slotId = event.slot.getSlotElementId(); const slotHandlers = handlers.get(slotId); slotHandlers?.onViewableImpression?.(event); }); pubads.addEventListener('slotVisibilityChanged', (event) => { const slotId = event.slot.getSlotElementId(); const slotHandlers = handlers.get(slotId); slotHandlers?.onVisibilityChanged?.(event); }); }); } catch {} }; export const registerSlotListners = (slotId, slotHandlers) => { handlers.set(slotId, slotHandlers); }; export const unregisterSlotListners = (slotId) => { handlers.delete(slotId); }; App.js import { initGPT } from "utils/GoogleAdsHelper"; class App extends Component { constructor(props) { initGPT(); } how about this
+import React, { useState, useRef, useEffect } from 'react';
+import { useSelector } from 'react-redux';
+import 'styles/m-scss/components/listing26/c-stickycallbanner.scss';
+import StickySeniorCallBanner from './StickySeniorCallBanner';
+import StickyCallCouponBanner from './StickyCallCouponBanner';
+import StickyCallBanner from './StickyCallBanner';
+import StickyChatBanner from './StickyChatBanner';
+import { getDataFromSessionStorage, saveInSessionStorage } from 'utils/storageHelper';
+
+const StickyBanner = () => {
+    const { AkamaiCountryCode, criteria, dynamicPhoneNumber } = useSelector(mapStateToProps);
+    const [isBannerClosed, setIsBannerClosed] = useState(true);
+    const showStickyBannerObserver = useRef<IntersectionObserver | null>(null);
+    const hideStickyBannerObserver = useRef<IntersectionObserver | null>(null);
+    const isSenior = criteria.numTravelers.Total === criteria.numTravelers.seniors;
+    const { CountrySpecificTfn, ExcludedPromo, ShowCallOnlyCouponBanner, enableChatSdk, enableChatForIframe } = window.cockpitSetting?.ApplicationSettings ?? {};
+    const displayCallBanner = CountrySpecificTfn?.includes(AkamaiCountryCode) ?? false;
+    const callPromoCodeContent = ExcludedPromo ? JSON.parse(ExcludedPromo) : null;
+    const callCouponCodeOnStickyBanner = callPromoCodeContent?.code && ShowCallOnlyCouponBanner;
+    const isChatEnabled = enableChatSdk && (enableChatForIframe || window.location === window.parent.location);
+    const resources = window.iLn.ListingResources;
+
+    useEffect(() => {
+        setStickyBanner();
+        return(() => {
+            window.stickyBannerScrollObserver = false;
+            window.stickyBannerScrollObserverClose = false;
+            showStickyBannerObserver.current?.disconnect();
+            hideStickyBannerObserver.current?.disconnect();
+        })
+    }, [])
+    const setStickyBanner = () => {
+        getDataFromSessionStorage("closedStickyCallBanner").then((closedStickyCallBanner) => {
+            if(!closedStickyCallBanner) {
+                showStickyBannerIntersectionObservere("#contractindex_4");
+            }
+        });
+    }
+    const showStickyBannerIntersectionObservere = (selector: string) => {
+        try {
+            showStickyBannerObserver.current?.disconnect();
+
+            const target = document.querySelector(selector);
+            if (!target) return;
+
+            showStickyBannerObserver.current = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting && !window.stickyBannerScrollObserver ) {
+                    setIsBannerClosed(false);
+                    setTimeout(() => { closeStickyBannerIntersectionObserver("#contractindex_1")}, 1000);
+                    window.stickyBannerScrollObserver = true;
+                }
+            }, { threshold: .5});
+
+            showStickyBannerObserver.current.observe(target);
+        }
+        catch { }
+    }
+    const closeStickyBannerIntersectionObserver = (selector: string) => {
+        try {
+            hideStickyBannerObserver.current?.disconnect();
+
+            const target = document.querySelector(selector);
+            if (!target) return;
+
+            hideStickyBannerObserver.current = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting && !window.stickyBannerScrollObserverClose) {
+                    setIsBannerClosed(true);
+                    window.stickyBannerScrollObserver = false;
+                }
+            }, { threshold: 1 });
+            
+            hideStickyBannerObserver.current.observe(target);
+        }
+        catch { }
+    }
+    const closeBanner = () => {
+        setIsBannerClosed(true);
+        saveInSessionStorage("closedStickyCallBanner", true);
+        window.stickyBannerScrollObserver = true;
+        window.stickyBannerScrollObserverClose = true;
+        showStickyBannerObserver.current?.disconnect();
+        hideStickyBannerObserver.current?.disconnect();
+    };
+
+    if (isBannerClosed) return null;
+
+    if (displayCallBanner) {
+        if (isSenior) 
+            return <StickySeniorCallBanner dynamicPhoneNumber={dynamicPhoneNumber} closeBanner={closeBanner} />;
+        if (callCouponCodeOnStickyBanner)
+            return <StickyCallCouponBanner dynamicPhoneNumber={dynamicPhoneNumber} callPromoCodeContent={callPromoCodeContent} resources={resources} closeBanner={closeBanner} />;
+        return <StickyCallBanner dynamicPhoneNumber={dynamicPhoneNumber} closeBanner={closeBanner} />;
+    }
+
+    if (isChatEnabled) 
+        return <StickyChatBanner closeBanner={closeBanner}/>;
+
+    return null;
+}
+const mapStateToProps = (state) => ({
+   AkamaiCountryCode: state.airContext.AkamaiCountryCode,
+   criteria: state.airListing.listing.criteria,
+   dynamicPhoneNumber: state.userActivity.dynamicPhoneNumber
+});
+
+export default StickyBanner
